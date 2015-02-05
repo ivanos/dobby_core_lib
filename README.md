@@ -1,2 +1,3 @@
-# dobby
-MAP Server
+dobby
+=====
+Requires: R17
