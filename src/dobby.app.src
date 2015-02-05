@@ -1,0 +1,14 @@
+{application, dobby,
+ [
+  {description, ""},
+  {vsn, "1"},
+  {registered, []},
+  {applications, [
+                  kernel,
+                  stdlib
+                 ]},
+  {mod, { dobby_app, []}},
+  {env, [
+    {global_name, dobby}
+  ]}
+ ]}.
