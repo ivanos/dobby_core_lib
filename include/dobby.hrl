@@ -12,10 +12,16 @@
                     #{binary() => jsonable()}.
 
 % metadata as an argument to functions
--type metadata() :: jsonable() | fun((jsonable()) -> jsonable()) | nochange.
+-type metadata() :: jsonable() |
+                    fun((jsonable()) -> jsonable()) |
+                    nochange |
+                    delete.
 
 % identifier as an argument to functions
 -type endpoint() :: identifier() | {identifier(), metadata()}.
+
+% link as an argument to functions
+-type link() :: {endpoint(), endpoint(), metadata()}.
 
 % publish options
 -type publish_option() :: 'persistent' | 'message'.
