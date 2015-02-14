@@ -4,21 +4,10 @@
 
 -include_lib("dobby/include/dobby.hrl").
 
-% options for all API functions
--record(options, {
-    publish = message :: persistent | message,
-    traversal = breadth :: breadth | depth,
-    max_depth = 0 :: non_neg_integer(),
-    delta_fun = fun delta_default/2 :: fun(),
-    delivery_fun = fun delivery_default/1 :: fun()
-}).
-
 -spec publish([link() | endpoint()], [publish_option()]) -> ok | reason().
 publish(Data, Options) ->
-    Publish = (options(Options))#options.publish,
-    do_publish(Publish, Data).
-
-do_publish(Publish, Data) ->
+    % XXX need to catch badarg
+    Publish = (dby_options:options(Options))#options.publish,
     Fns = lists:foldl(
         fun({Endpoint1, Endpoint2, LinkMetadata}, Acc) ->
             [do_publish_link(Publish, Endpoint1, Endpoint2, LinkMetadata) | Acc];
@@ -153,31 +142,3 @@ apply_in_xact(Fn, Args) ->
         {ok, Reply} -> Reply;
         {'EXIT', Reason} -> mnesia:abort({user_error, Reason})
     end.
-
-options(Options) ->
-    lists:foldl(
-        fun(persistent, Record) ->
-            Record#options{publish = persistent};
-           (message, Record) ->
-            Record#options{publish = message};
-           (breadth, Record) ->
-            Record#options{traversal = breadth};
-           (depth, Record) ->
-            Record#options{traversal = depth};
-           ({max_depth, Depth}, Record) when Depth >= 0 and is_integer(Depth) ->
-            Record#options{max_depth = Depth};
-           ({delta_fun, DFun}, Record) when is_function(DFun) ->
-            Record#options{delta_fun = DFun};
-           ({delivery_fun, SFun}, Record) when is_function(SFun) ->
-            Record#options{delivery_fun = SFun};
-           (BadArg, _) ->
-            throw({badarg, BadArg})
-        end, #options{}, Options).
-
-% Default delta function for subscriptions.  Return the new value.
-delta_default(_, New) ->
-    {delta, New}.
-
-% Default delivery function for subscriptions.  Do nothing.
-delivery_default(_) ->
-    ok.
