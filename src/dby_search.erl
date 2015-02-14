@@ -29,7 +29,11 @@ search(Fun, StartIdentifier, Acc, Options) ->
 do_search(depth, MaxDepth, Fun, StartIdentifier, Acc) ->
     start_depth_search(MaxDepth, Fun, StartIdentifier, Acc);
 do_search(breadth, MaxDepth, Fun, StartIdentifier, Acc) ->
-    [].
+    start_breadth_search(MaxDepth, Fun, StartIdentifier, Acc).
+
+%-------------------------------------------------------------------------------
+% depth search
+%-------------------------------------------------------------------------------
 
 start_depth_search(MaxDepth, Fun, StartIdentifier, Acc0) ->
     % seed the search with the starting identifier
@@ -99,6 +103,76 @@ depth_search_next([Search0 | SearchStack0], Discovered, Fun1) ->
             ]
     end.
 
+first_not_discovered(Links, Discovered) ->
+    lists:dropwhile(
+        fun({Identifier, _}) ->
+            sets:is_element(Identifier, Discovered)
+        end, Links).
+
+%-------------------------------------------------------------------------------
+% breadth search
+%-------------------------------------------------------------------------------
+
+start_breadth_search(MaxDepth, Fun, StartIdentifier, Acc0) ->
+    Search = #search{
+        fn = Fun,
+        identifier = StartIdentifier,
+        linkmetadata = undefined,
+        depth = 0
+    },
+    breadth_search(MaxDepth,
+        queue:in(Search, queue:new()),
+        sets:add_element(StartIdentifier, sets:new()),
+        Acc0).
+
+breadth_search(MaxDepth, Q0, Queued0, Acc0) ->
+    case queue:len(Q0) of
+        0 ->
+            lists:reverse(Acc0);
+        _ ->
+            {{value, Search}, Q1} = queue:out(Q0),
+            Search1 = #search{
+                identifier = Identifier,
+                metadata = IdentifierMetadata,
+                linkmetadata = LinkMetadata,
+                fn = Fun
+            } = read_identifier(Search),
+            {Control, Fun1, Acc1} = apply_fun(Fun, Identifier,
+                                    IdentifierMetadata, LinkMetadata, Acc0),
+            {Q2, Queued1} = queue_links(Control, MaxDepth,
+                                                Fun1, Search1, Q1, Queued0),
+            breadth_search(MaxDepth, Q2, Queued1, Acc1)
+    end.
+
+queue_links(stop, _, _, _, _, Queued) ->
+    % empty queue to stop search
+    {queue:new(), Queued};
+queue_links(skip, _, _, _, Q, Queued) ->
+    {Q, Queued};
+queue_links(continue, MaxDepth, _, #search{depth = Depth}, Q, Queued)
+                                                    when Depth >= MaxDepth ->
+    {Q, Queued};
+queue_links(_, _, Fun, #search{links = Links, depth = Depth}, Q0, Queued0) ->
+    lists:foldl(
+        fun({Identifier, LinkMetadata}, {Q, Queued}) ->
+            case sets:is_element(Identifier, Queued) of
+                true ->
+                    {Q, Queued};
+                false ->
+                    Search = #search{
+                        fn = Fun,
+                        identifier = Identifier,
+                        linkmetadata = LinkMetadata,
+                        depth = Depth + 1
+                    },
+                    {queue:in(Search, Q), sets:add_element(Identifier, Queued)}
+            end
+        end, {Q0, Queued0}, Links).
+
+%-------------------------------------------------------------------------------
+% helper functions
+%-------------------------------------------------------------------------------
+
 % apply the search function.  Normalize the return result.
 apply_fun(Fun, Identifier, IdentifierMetadata, LinkMetadata, Acc) ->
     case Fun(Identifier, IdentifierMetadata, LinkMetadata, Acc) of
@@ -126,8 +200,3 @@ read_identifier(Search = #search{identifier = Identifier}) ->
             }
     end.
 
-first_not_discovered(Links, Discovered) ->
-    lists:dropwhile(
-        fun(Link = {Identifier, _}) ->
-            sets:is_element(Identifier, Discovered)
-        end, Links).

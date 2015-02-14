@@ -12,11 +12,16 @@ dby_search_test_() ->
      {foreach,
        fun each_setup/0,
        [
-        {"no links", fun search1/0},
-        {"links", fun search2/0},
+        {"depth no links", fun search1/0},
+        {"depth links", fun search2/0},
         {"depth first", fun search3/0},
-        {"stop", fun search4/0},
-        {"skip", fun search5/0}
+        {"depth stop", fun search4/0},
+        {"depth skip", fun search5/0},
+        {"breadth no links", fun search6/0},
+        {"breadth links", fun search7/0},
+        {"breadth first", fun search8/0},
+        {"breadth stop", fun search9/0},
+        {"breadth skip", fun search10/0}
        ]
      }
     }.
@@ -60,7 +65,6 @@ search2() ->
                         dby:search(search_fn(continue), <<"A">>, [], [depth])),
     ?assertEqual([{<<"A">>, id_metadata1(<<"A">>), undefined}],
         dby:search(search_fn(continue), <<"A">>, [], [depth, {max_depth, 0}])),
-
     ?assertEqual([<<"A">>,<<"B">>,<<"C">>,<<"E">>],
         lists:sort(dby:search(search_fn2(continue), <<"A">>, [],
                                                     [depth, {max_depth, 1}]))),
@@ -104,6 +108,78 @@ search5() ->
     ?assertEqual([<<"A">>,<<"B">>,<<"C">>,<<"E">>],
             lists:sort(dby:search(search_fn_skip_on(<<"B">>), <<"A">>, [],
                                                     [depth, {max_depth, 2}]))).
+
+search6() ->
+    % no links
+    Identifier1 = <<"id1">>,
+    Metadata1 = #{<<"key1">> => <<"value1">>},
+    IdentifierR1 = #identifier{id = Identifier1, metadata = Metadata1, links = #{}},
+
+    % continue
+    dby_read(dby_db([IdentifierR1])),
+    ?assertEqual([{Identifier1, Metadata1, undefined}],
+                dby:search(search_fn(continue), Identifier1, [], [breadth])),
+
+    % skip
+    dby_read(dby_db([IdentifierR1])),
+    ?assertEqual([{Identifier1, Metadata1, undefined}],
+                dby:search(search_fn(skip), Identifier1, [], [breadth])),
+
+    % stop
+    dby_read(dby_db([IdentifierR1])),
+    ?assertEqual([{Identifier1, Metadata1, undefined}],
+                dby:search(search_fn(stop), Identifier1, [], [breadth])).
+
+search7() ->
+    dby_read(dby_db(example1())),
+    ?assertEqual([{<<"A">>, id_metadata1(<<"A">>), undefined}],
+                    dby:search(search_fn(continue), <<"A">>, [], [breadth])),
+    ?assertEqual([{<<"A">>, id_metadata1(<<"A">>), undefined}],
+        dby:search(search_fn(continue), <<"A">>, [],
+                                                [breadth, {max_depth, 0}])),
+    ?assertEqual([<<"A">>,<<"B">>,<<"C">>,<<"E">>],
+        lists:sort(dby:search(search_fn2(continue), <<"A">>, [],
+                                                [breadth, {max_depth, 1}]))),
+    ?assertEqual([<<"A">>,<<"B">>,<<"C">>,<<"D">>,<<"E">>,<<"F">>,<<"G">>],
+        lists:sort(dby:search(search_fn2(continue), <<"A">>, [],
+                                                [breadth, {max_depth, 2}]))),
+    ?assertEqual([<<"A">>,<<"B">>,<<"C">>,<<"D">>,<<"E">>,<<"F">>,<<"G">>],
+        lists:sort(dby:search(search_fn2(continue), <<"A">>, [],
+                                                [breadth, {max_depth, 3}]))),
+    % start at differnt point
+    ?assertEqual([{<<"B">>, id_metadata1(<<"B">>), undefined}],
+                        dby:search(search_fn(continue), <<"B">>, [], [breadth])),
+    ?assertEqual([<<"A">>,<<"B">>,<<"C">>,<<"D">>,<<"E">>,<<"F">>],
+        lists:sort(dby:search(search_fn2(continue), <<"B">>, [],
+                                                [depth, {max_depth, 2}]))),
+    ?assertEqual([<<"A">>,<<"B">>,<<"C">>,<<"D">>,<<"E">>,<<"F">>,<<"G">>],
+        lists:sort(dby:search(search_fn2(continue), <<"B">>, [],
+                                                [breadth, {max_depth, 3}]))).
+
+search8() ->
+    % breadth order search
+    dby_read(dby_db(example2())),
+    Order = dby:search(search_fn2(continue), <<"A">>, [],
+                                                    [breadth, {max_depth, 2}]),
+    % A is first, B and C are before D and E
+    [First | _] = Order,
+    ?assertEqual(<<"A">>, First),
+    ?assert(list_before(<<"B">>, <<"D">>, Order) andalso list_before(<<"B">>, <<"E">>, Order) andalso list_before(<<"C">>, <<"D">>, Order) andalso list_before(<<"C">>,<<"E">>, Order)).
+
+search9() ->
+    % stop
+    dby_read(dby_db(example1())),
+    Order = dby:search(search_fn_stop_on(<<"C">>), <<"A">>, [],
+                                                    [breadth, {max_depth, 2}]),
+    % C is last identifier
+    ?assertEqual(<<"C">>, lists:last(Order)).
+
+search10() ->
+    % skip
+    dby_read(dby_db(example2())),
+    ?assertEqual([<<"A">>,<<"B">>,<<"C">>,<<"E">>],
+            lists:sort(dby:search(search_fn_skip_on(<<"B">>), <<"A">>, [],
+                                                [breadth, {max_depth, 2}]))).
 
 % ------------------------------------------------------------------------------
 % helper functions
