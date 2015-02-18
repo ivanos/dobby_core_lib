@@ -2,7 +2,8 @@
 
 -export([start/0]).
 
--include_lib("dobby/include/dobby.hrl").
+-include_lib("dobby_clib/include/dobby.hrl").
+-include("dobby.hrl").
 
 % start mnesia and create the on disk schema and tables if
 % they don't already exist.
@@ -50,5 +51,11 @@ tabledefs() ->
     [
         {identifier, [{attributes, record_info(fields, identifier)},
                       {disc_copies, [node()]},
-                      {type, set}]}
+                      {type, set}]},
+        {subscription, [{attributes, record_info(fields, subscription)},
+                      {disc_copies, [node()]},
+                      {type, set}]},
+        {subscriber, [{attributes, record_info(fields, subscriber)},
+                      {disc_copies, [node()]},
+                      {type, bag}]}
     ].

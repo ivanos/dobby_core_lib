@@ -2,7 +2,8 @@
 
 -export([publish/2]).
 
--include_lib("dobby/include/dobby.hrl").
+-include_lib("dobby_clib/include/dobby.hrl").
+-include("dobby.hrl").
 
 -spec publish([link() | endpoint()], [publish_option()]) -> ok | reason().
 publish(Data, Options) ->

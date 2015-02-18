@@ -2,7 +2,8 @@
 
 -export([search/4]).
 
--include_lib("dobby/include/dobby.hrl").
+-include_lib("dobby_clib/include/dobby.hrl").
+-include("dobby.hrl").
 
 -record(search, {
     fn :: fun(),

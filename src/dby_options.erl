@@ -4,7 +4,8 @@
          delta_default/2,
          delivery_default/1]).
 
--include_lib("dobby/include/dobby.hrl").
+-include_lib("dobby_clib/include/dobby.hrl").
+-include("dobby.hrl").
 
 options(Options) ->
     lists:foldl(

@@ -1,10 +1,14 @@
 -module(dby_db).
 
--export([transaction/1,
+-export([start/0,
+         transaction/1,
          abort/1,
          write/1,
          read/1,
          delete/1]).
+
+start() ->
+    dby_mnesia:start().
 
 transaction(Fn) ->
     case mnesia:transaction(Fn) of

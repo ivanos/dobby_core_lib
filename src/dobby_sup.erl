@@ -16,8 +16,8 @@
 %% ===================================================================
 
 start_link() ->
-    % start mnesia
-    dby_mnesia:start(),
+    % start database
+    dby_db:start(),
     supervisor:start_link({local, ?MODULE}, ?MODULE, []).
 
 %% ===================================================================
