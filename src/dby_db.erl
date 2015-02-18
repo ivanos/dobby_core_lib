@@ -10,21 +10,19 @@ transaction(Fn) ->
     case mnesia:transaction(Fn) of
         {aborted, Reason} ->
             {error, {mnesia, Reason}};
-        {atomic, ok} ->
-            ok
+        {atomic, Ret} ->
+            Ret
     end.
 
 abort(Reason) ->
-    {atomic, ok} = mnesia:abort(Reason),
-    ok.
+    mnesia:abort(Reason).
+    % does not return
 
 write(Record) ->
-    {atomic, ok} = mnesia:write(Record),
-    ok.
+    ok = mnesia:write(Record).
 
 read(Key) ->
     mnesia:read(Key).
 
 delete(Key) ->
-    {atomic, ok} = mnesia:delete(Key),
-    ok.
+    ok = mnesia:delete(Key).

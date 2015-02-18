@@ -1,6 +1,7 @@
 -module(dby_search).
 
--export([search/4]).
+-export([search/4,
+         identifiers/4]).
 
 -include_lib("dobby/include/dobby.hrl").
 
@@ -14,8 +15,13 @@
     loaded = false
 }).
 
+-spec identifiers(identifier(), jsonable(), jsonable(), list()) -> {continue, list()}.
+identifiers(Identifier, IdMetadata, LinkMetadata, Acc) ->
+    {continue, [{Identifier, IdMetadata, LinkMetadata} | Acc]}.
+    
+
 -spec search(search_fun(), identifier(), term(), search_options()) -> term() | {error, reason()}.
-search(Fun, StartIdentifier, Acc, Options) ->
+search(Fun, Acc, StartIdentifier, Options) ->
     % XXX need to catch badarg
     OptionsR = dby_options:options(Options),
     Traversal = OptionsR#options.traversal,

@@ -80,5 +80,5 @@ publish(Data, Options) ->
 % If `max_depth' is not provided, `0' is used.
 % @end
 -spec search(Fun :: search_fun(), Acc :: term(), StartIdentifier :: identifier(), [search_options()]) -> term() | {error, reason()}.
-search(Fun, StartIdentifier, Acc, Options) ->
-        dby_search:search(Fun, StartIdentifier, Acc, Options).
+search(Fun, Acc, StartIdentifier, Options) ->
+        dby_search:search(Fun, Acc, StartIdentifier, Options).
