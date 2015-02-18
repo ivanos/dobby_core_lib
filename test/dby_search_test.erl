@@ -47,47 +47,47 @@ search1() ->
     % continue
     dby_read(dby_db([IdentifierR1])),
     ?assertEqual([{Identifier1, Metadata1, undefined}],
-                dby:search(search_fn(continue), Identifier1, [], [depth])),
+                dby:search(search_fn(continue), [], Identifier1, [depth])),
 
     % skip
     dby_read(dby_db([IdentifierR1])),
     ?assertEqual([{Identifier1, Metadata1, undefined}],
-                dby:search(search_fn(skip), Identifier1, [], [depth])),
+                dby:search(search_fn(skip), [], Identifier1, [depth])),
 
     % stop
     dby_read(dby_db([IdentifierR1])),
     ?assertEqual([{Identifier1, Metadata1, undefined}],
-                dby:search(search_fn(stop), Identifier1, [], [depth])).
+                dby:search(search_fn(stop), [], Identifier1, [depth])).
 
 search2() ->
     dby_read(dby_db(example1())),
     ?assertEqual([{<<"A">>, id_metadata1(<<"A">>), undefined}],
-                        dby:search(search_fn(continue), <<"A">>, [], [depth])),
+                        dby:search(search_fn(continue), [], <<"A">>, [depth])),
     ?assertEqual([{<<"A">>, id_metadata1(<<"A">>), undefined}],
-        dby:search(search_fn(continue), <<"A">>, [], [depth, {max_depth, 0}])),
+        dby:search(search_fn(continue), [], <<"A">>, [depth, {max_depth, 0}])),
     ?assertEqual([<<"A">>,<<"B">>,<<"C">>,<<"E">>],
-        lists:sort(dby:search(search_fn2(continue), <<"A">>, [],
+        lists:sort(dby:search(search_fn2(continue), [], <<"A">>,
                                                     [depth, {max_depth, 1}]))),
     ?assertEqual([<<"A">>,<<"B">>,<<"C">>,<<"D">>,<<"E">>,<<"F">>,<<"G">>],
-        lists:sort(dby:search(search_fn2(continue), <<"A">>, [],
+        lists:sort(dby:search(search_fn2(continue), [], <<"A">>,
                                                     [depth, {max_depth, 2}]))),
     ?assertEqual([<<"A">>,<<"B">>,<<"C">>,<<"D">>,<<"E">>,<<"F">>,<<"G">>],
-        lists:sort(dby:search(search_fn2(continue), <<"A">>, [],
+        lists:sort(dby:search(search_fn2(continue), [], <<"A">>,
                                                     [depth, {max_depth, 3}]))),
     % start at differnt point
     ?assertEqual([{<<"B">>, id_metadata1(<<"B">>), undefined}],
-                        dby:search(search_fn(continue), <<"B">>, [], [depth])),
+                        dby:search(search_fn(continue), [], <<"B">>, [depth])),
     ?assertEqual([<<"A">>,<<"B">>,<<"C">>,<<"D">>,<<"E">>,<<"F">>],
-        lists:sort(dby:search(search_fn2(continue), <<"B">>, [],
+        lists:sort(dby:search(search_fn2(continue), [], <<"B">>,
                                                     [depth, {max_depth, 2}]))),
     ?assertEqual([<<"A">>,<<"B">>,<<"C">>,<<"D">>,<<"E">>,<<"F">>,<<"G">>],
-        lists:sort(dby:search(search_fn2(continue), <<"B">>, [],
+        lists:sort(dby:search(search_fn2(continue), [], <<"B">>,
                                                     [depth, {max_depth, 3}]))).
 
 search3() ->
     % depth order search
     dby_read(dby_db(example2())),
-    Order = dby:search(search_fn2(continue), <<"A">>, [],
+    Order = dby:search(search_fn2(continue), [], <<"A">>,
                                                     [depth, {max_depth, 2}]),
     % A is first, D is before C or E is before B.
     [First | _] = Order,
@@ -97,7 +97,7 @@ search3() ->
 search4() ->
     % stop
     dby_read(dby_db(example1())),
-    Order = dby:search(search_fn_stop_on(<<"D">>), <<"A">>, [],
+    Order = dby:search(search_fn_stop_on(<<"D">>), [], <<"A">>,
                                                     [depth, {max_depth, 2}]),
     % D is last identifier
     ?assertEqual(<<"D">>, lists:last(Order)).
@@ -106,7 +106,7 @@ search5() ->
     % skip
     dby_read(dby_db(example2())),
     ?assertEqual([<<"A">>,<<"B">>,<<"C">>,<<"E">>],
-            lists:sort(dby:search(search_fn_skip_on(<<"B">>), <<"A">>, [],
+            lists:sort(dby:search(search_fn_skip_on(<<"B">>), [], <<"A">>,
                                                     [depth, {max_depth, 2}]))).
 
 search6() ->
@@ -118,48 +118,48 @@ search6() ->
     % continue
     dby_read(dby_db([IdentifierR1])),
     ?assertEqual([{Identifier1, Metadata1, undefined}],
-                dby:search(search_fn(continue), Identifier1, [], [breadth])),
+                dby:search(search_fn(continue), [], Identifier1, [breadth])),
 
     % skip
     dby_read(dby_db([IdentifierR1])),
     ?assertEqual([{Identifier1, Metadata1, undefined}],
-                dby:search(search_fn(skip), Identifier1, [], [breadth])),
+                dby:search(search_fn(skip), [], Identifier1, [breadth])),
 
     % stop
     dby_read(dby_db([IdentifierR1])),
     ?assertEqual([{Identifier1, Metadata1, undefined}],
-                dby:search(search_fn(stop), Identifier1, [], [breadth])).
+                dby:search(search_fn(stop), [], Identifier1, [breadth])).
 
 search7() ->
     dby_read(dby_db(example1())),
     ?assertEqual([{<<"A">>, id_metadata1(<<"A">>), undefined}],
-                    dby:search(search_fn(continue), <<"A">>, [], [breadth])),
+                    dby:search(search_fn(continue), [], <<"A">>, [breadth])),
     ?assertEqual([{<<"A">>, id_metadata1(<<"A">>), undefined}],
-        dby:search(search_fn(continue), <<"A">>, [],
+        dby:search(search_fn(continue), [], <<"A">>,
                                                 [breadth, {max_depth, 0}])),
     ?assertEqual([<<"A">>,<<"B">>,<<"C">>,<<"E">>],
-        lists:sort(dby:search(search_fn2(continue), <<"A">>, [],
+        lists:sort(dby:search(search_fn2(continue), [], <<"A">>,
                                                 [breadth, {max_depth, 1}]))),
     ?assertEqual([<<"A">>,<<"B">>,<<"C">>,<<"D">>,<<"E">>,<<"F">>,<<"G">>],
-        lists:sort(dby:search(search_fn2(continue), <<"A">>, [],
+        lists:sort(dby:search(search_fn2(continue), [], <<"A">>,
                                                 [breadth, {max_depth, 2}]))),
     ?assertEqual([<<"A">>,<<"B">>,<<"C">>,<<"D">>,<<"E">>,<<"F">>,<<"G">>],
-        lists:sort(dby:search(search_fn2(continue), <<"A">>, [],
+        lists:sort(dby:search(search_fn2(continue), [], <<"A">>,
                                                 [breadth, {max_depth, 3}]))),
     % start at differnt point
     ?assertEqual([{<<"B">>, id_metadata1(<<"B">>), undefined}],
-                        dby:search(search_fn(continue), <<"B">>, [], [breadth])),
+                        dby:search(search_fn(continue), [], <<"B">>, [breadth])),
     ?assertEqual([<<"A">>,<<"B">>,<<"C">>,<<"D">>,<<"E">>,<<"F">>],
-        lists:sort(dby:search(search_fn2(continue), <<"B">>, [],
+        lists:sort(dby:search(search_fn2(continue), [], <<"B">>,
                                                 [depth, {max_depth, 2}]))),
     ?assertEqual([<<"A">>,<<"B">>,<<"C">>,<<"D">>,<<"E">>,<<"F">>,<<"G">>],
-        lists:sort(dby:search(search_fn2(continue), <<"B">>, [],
+        lists:sort(dby:search(search_fn2(continue), [], <<"B">>,
                                                 [breadth, {max_depth, 3}]))).
 
 search8() ->
     % breadth order search
     dby_read(dby_db(example2())),
-    Order = dby:search(search_fn2(continue), <<"A">>, [],
+    Order = dby:search(search_fn2(continue), [], <<"A">>,
                                                     [breadth, {max_depth, 2}]),
     % A is first, B and C are before D and E
     [First | _] = Order,
@@ -169,7 +169,7 @@ search8() ->
 search9() ->
     % stop
     dby_read(dby_db(example1())),
-    Order = dby:search(search_fn_stop_on(<<"C">>), <<"A">>, [],
+    Order = dby:search(search_fn_stop_on(<<"C">>), [], <<"A">>,
                                                     [breadth, {max_depth, 2}]),
     % C is last identifier
     ?assertEqual(<<"C">>, lists:last(Order)).
@@ -178,7 +178,7 @@ search10() ->
     % skip
     dby_read(dby_db(example2())),
     ?assertEqual([<<"A">>,<<"B">>,<<"C">>,<<"E">>],
-            lists:sort(dby:search(search_fn_skip_on(<<"B">>), <<"A">>, [],
+            lists:sort(dby:search(search_fn_skip_on(<<"B">>), [], <<"A">>,
                                                 [breadth, {max_depth, 2}]))).
 
 % ------------------------------------------------------------------------------
