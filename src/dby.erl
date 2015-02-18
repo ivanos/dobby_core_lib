@@ -6,7 +6,8 @@
 
 -export([publish/2,
          publish/4,
-         search/4
+         search/4,
+         identifiers/4
         ]).
 
 -include_lib("dobby/include/dobby.hrl").
@@ -82,3 +83,12 @@ publish(Data, Options) ->
 -spec search(Fun :: search_fun(), Acc :: term(), StartIdentifier :: identifier(), [search_options()]) -> term() | {error, reason()}.
 search(Fun, Acc, StartIdentifier, Options) ->
         dby_search:search(Fun, Acc, StartIdentifier, Options).
+
+% @doc
+% When used as the function for `dby:search/4', returns the list of
+% identifiers traversed in the search as tuples containing the
+% identifier, the identifier's metadata, and the link's metadata.
+% @end
+-spec identifiers(identifier(), jsonable(), jsonable(), list()) -> {continue, list()}.
+identifiers(Identifier, IdMetadata, LinkMetadata, Acc) ->
+    {continue, [{Identifier, IdMetadata, LinkMetadata} | Acc]}.
