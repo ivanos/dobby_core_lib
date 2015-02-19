@@ -34,16 +34,21 @@ start_link() ->
 init([]) ->
     {ok, #?STATE{}}.
 
-handle_call({publish, Endpoint1, Endpoint2, LinkMetadata, Options},
-                                                        _From, State) ->
-    Reply = dby_publish:publish(Endpoint1, Endpoint2, LinkMetadata, Options),
-    {reply, Reply, State}.
+handle_call({dby_publish, [Data, Options]}, From, State) ->
+    run(From, fun() -> dby_publish:publish(Data, Options) end),
+    {noreply, State};
+handle_call({dby_search, [Fun, Acc, StartIdentifier, Options]}, From, State) ->
+    run(From,
+        fun() -> dby_search:search(Fun, Acc, StartIdentifier, Options) end),
+    {noreply, State};
+handle_call(Request, _From, _State) ->
+    error({not_implemented, call, Request}).
 
-handle_cast(_Msg, State) ->
-    {noreply, State}.
+handle_cast(Msg, _State) ->
+    error({not_implemented, cast, Msg}).
 
-handle_info(_Info, State) ->
-    {noreply, State}.
+handle_info(Info, _State) ->
+    error({not_implemented, info, Info}).
 
 terminate(_Reason, _State) ->
     ok.
@@ -55,3 +60,15 @@ code_change(_OldVsn, State, _Extra) ->
 %% Internal Function Definitions
 %% ------------------------------------------------------------------
 
+% run a gen_server:handle_call job asynchronously
+run(From, Job) ->
+    Fn = fun() ->
+        Reply = try
+            Job()
+        catch
+            Type:Reason ->
+                {error, {Type, Reason}}
+        end,
+        gen_server:reply(From, Reply)
+    end,
+    spawn(Fn).
