@@ -5,7 +5,8 @@
          abort/1,
          write/1,
          read/1,
-         delete/1]).
+         delete/1,
+         foldl/3]).
 
 start() ->
     dby_mnesia:start().
@@ -30,3 +31,6 @@ read(Key) ->
 
 delete(Key) ->
     ok = mnesia:delete(Key).
+
+foldl(Fn, Acc, Table) ->
+    mnesia:foldl(Fn, Acc, Table).
