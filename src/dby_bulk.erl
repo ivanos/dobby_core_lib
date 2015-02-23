@@ -21,7 +21,7 @@
 % `export/2' writes the graph database to the file.  The only supported
 % format is json.
 % @end
--spec export(json :: Format, string()) -> ok | {error, term()}.
+-spec export(Format :: json, string()) -> ok | {error, term()}.
 export(json, Filename) ->
     Fn = fun() ->
         lists:flatten(dby_db:foldl(
@@ -37,7 +37,7 @@ export(json, Filename) ->
 % `import/2' imports a file written `export/2' into the graph database.
 % The only supported format is json.
 % @end
--spec import(json :: Format, string()) -> ok | {error, reason()}.
+-spec import(Format :: json, string()) -> ok | {error, reason()}.
 import(json, Filename) ->
     {ok, Binary} = file:read_file(Filename),
     Decode = jiffy:decode(Binary),
