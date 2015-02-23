@@ -27,7 +27,7 @@ export(json, Filename) ->
         lists:flatten(dby_db:foldl(
             fun(IdentifierR, Jsons) ->
                 [json_link(IdentifierR) | Jsons]
-            end, [], identifiers
+            end, [], identifier
         ))
     end,
     Data = dby_db:transaction(Fn),
