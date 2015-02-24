@@ -52,7 +52,7 @@ bulk1() ->
 % ------------------------------------------------------------------------------
 
 dby_foldl(Items) ->
-    Fn = fun(Fun, Acc, identifiers) ->
+    Fn = fun(Fun, Acc, identifier) ->
         lists:foldl(Fun, Acc, Items)
     end,
     ok = meck:expect(dby_db, foldl, Fn).
