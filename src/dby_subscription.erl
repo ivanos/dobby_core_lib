@@ -5,7 +5,7 @@
 -include_lib("dobby_clib/include/dobby.hrl").
 -include("dobby.hrl").
 
--spec subscribe(search_fun(), term(), identifier(), subscribe_options()) -> {ok, term()} | {error, reason()}.
+-spec subscribe(search_fun(), term(), dby_identifier(), subscribe_options()) -> {ok, term()} | {error, reason()}.
 subscribe(Fun, Acc, StartIdentifier, Options) ->
     try
         Subscription = #subscription{

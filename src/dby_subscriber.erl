@@ -5,7 +5,7 @@
 
 % process subscriptions during a publish
 
--spec publish(publish_option(), [identifier()]) -> ok.
+-spec publish(publish_option(), [dby_identifier()]) -> ok.
 publish(Publish, Identifiers) ->
     try
         Fn = do_publish(Publish, Identifiers),

@@ -10,9 +10,9 @@
 
 % database representation of an identifier (vertex)
 -record(identifier, {
-    id :: identifier(),
+    id :: dby_identifier(),
     metadata = null :: jsonable(),
-    links = #{} :: #{identifier() => jsonable()}
+    links = #{} :: #{dby_identifier() => jsonable()}
 }).
 
 % XXX store the subcriptions in the graph
@@ -28,14 +28,14 @@
     id :: term(),
     searchfun :: search_fun(),
     acc0 :: term(),
-    start_identifier :: identifier(),
+    start_identifier :: dby_identifier(),
     options :: #options{},
     last_result :: term(),
-    last_discovered :: [identifier()]
+    last_discovered :: [dby_identifier()]
 }).
 
 % database representation of a subscriber.  Maps identifiers to subscriptions.
 -record(subscriber, {
-    identifier :: identifier(),
+    identifier :: dby_identifier(),
     id = #subscription{}
 }).

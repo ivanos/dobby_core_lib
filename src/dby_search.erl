@@ -10,16 +10,16 @@
 
 -record(search, {
     fn :: fun(),
-    identifier :: identifier(),
-    from = undefined :: identifier(),
+    identifier :: dby_identifier(),
+    from = undefined :: dby_identifier(),
     metadata :: jsonable(),
     linkmetadata :: jsonable(),         % metadata on link to this identifier
-    links :: [{identifier(), jsonable()}], % remaining links to follow
+    links :: [{dby_identifier(), jsonable()}], % remaining links to follow
     depth :: non_neg_integer(),
     loaded = false
 }).
 
--spec search(search_fun(), identifier(), term(), search_options()) -> term() | {error, reason()}.
+-spec search(search_fun(), dby_identifier(), term(), search_options()) -> term() | {error, reason()}.
 search(Fun, Acc, StartIdentifier, Options) ->
     % XXX need to catch badarg
     OptionsR = dby_options:options(Options),

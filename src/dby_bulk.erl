@@ -8,8 +8,8 @@
 
 -record(term, {
     type :: link | identifier,
-    identifier :: identifier(),
-    link :: {identifier(), identifier()},
+    identifier :: dby_identifier(),
+    link :: {dby_identifier(), dby_identifier()},
     metadata :: jsonable()
 }).
 

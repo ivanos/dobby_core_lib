@@ -5,7 +5,7 @@
 -include_lib("dobby_clib/include/dobby.hrl").
 -include("dobby.hrl").
 
--spec publish([link() | endpoint()], [publish_option()]) -> ok | reason().
+-spec publish([link() | dby_endpoint()], [publish_option()]) -> ok | reason().
 publish(Data, Options) ->
     % XXX need to catch badarg
     Publish = (dby_options:options(Options))#options.publish,
