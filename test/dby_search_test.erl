@@ -22,7 +22,9 @@ dby_search_test_() ->
         {"breadth links", fun search7/0},
         {"breadth first", fun search8/0},
         {"breadth stop", fun search9/0},
-        {"breadth skip", fun search10/0}
+        {"breadth skip", fun search10/0},
+        {"no loop", fun search11/0},
+        {"link loop", fun search12/0}
        ]
      }
     }.
@@ -181,6 +183,40 @@ search10() ->
     ?assertEqual([<<"A">>,<<"B">>,<<"C">>,<<"E">>],
             lists:sort(dby_search:search(search_fn_skip_on(<<"B">>), [], <<"A">>,
                                                 [breadth, {max_depth, 2}]))).
+
+search11() ->
+    % no loop detection
+    dby_read(dby_db(dby_test_utils:example3())),
+    ?assertEqual([<<"A">>,<<"B">>,<<"A">>,<<"A">>,<<"B">>,<<"A">>],
+            lists:reverse(dby_search:search(search_fn2(continue), [], <<"A">>,
+                                    [depth, {max_depth, 2}, {loop, none}]))),
+    ?assertEqual([<<"A">>,<<"B">>,<<"A">>],
+            lists:reverse(dby_search:search(search_fn2(continue), [], <<"A">>,
+                                    [breadth, {max_depth, 2}, {loop, none}]))).
+
+search12() ->
+    % link loop detection
+    dby_read(dby_db(dby_test_utils:example2())),
+    ?assertEqual([{<<"A">>, dby_test_utils:id_metadata1(<<"A">>), undefined}],
+                        dby_search:search(search_fn(continue), [], <<"A">>, [depth, {loop, link}])),
+    ?assertEqual([{<<"A">>, dby_test_utils:id_metadata1(<<"A">>), undefined}],
+        dby_search:search(search_fn(continue), [], <<"A">>, [depth, {max_depth, 0}, {loop, link}])),
+    ?assertEqual([<<"A">>,<<"B">>,<<"C">>],
+        lists:sort(dby_search:search(search_fn2(continue), [], <<"A">>,
+                                    [depth, {max_depth, 1}, {loop, link}]))),
+    ?assertEqual([<<"A">>,<<"B">>,<<"C">>,<<"D">>,<<"E">>],
+        lists:sort(dby_search:search(search_fn2(continue), [], <<"A">>,
+                                    [depth, {max_depth, 2}, {loop, link}]))),
+    ?assertEqual([<<"A">>,<<"B">>,<<"C">>,<<"D">>,<<"E">>],
+        lists:sort(dby_search:search(search_fn2(continue), [], <<"A">>,
+                                    [depth, {max_depth, 3}, {loop, link}]))),
+    ?assertEqual([<<"A">>,<<"B">>,<<"C">>,<<"D">>,<<"E">>],
+        lists:sort(dby_search:search(search_fn2(continue), [], <<"A">>,
+                                    [breadth, {max_depth, 3}, {loop, link}]))),
+    dby_read(dby_db(dby_test_utils:example1())),
+    ?assertEqual([<<"A">>,<<"B">>,<<"C">>,<<"D">>,<<"E">>,<<"F">>,<<"F">>,<<"G">>],
+        lists:sort(dby_search:search(search_fn2(continue), [], <<"A">>,
+                                    [breadth, {max_depth, 3}, {loop, link}]))).
 
 % ------------------------------------------------------------------------------
 % helper functions

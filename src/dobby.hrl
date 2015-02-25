@@ -3,6 +3,7 @@
     publish = message :: persistent | message,
     traversal = breadth :: breadth | depth,
     max_depth = 0 :: non_neg_integer(),
+    loop = identifier :: loop_detection(),
     delta_fun = fun dby_options:delta_default/2 :: fun(),
     delivery_fun = fun dby_options:delivery_default/1 :: fun()
 }).

@@ -5,9 +5,13 @@
 -include_lib("dobby_clib/include/dobby.hrl").
 -include("dobby.hrl").
 
+% XXX add user/system type
+% XXX option to allow loops
+
 -record(search, {
     fn :: fun(),
     identifier :: identifier(),
+    from = undefined :: identifier(),
     metadata :: jsonable(),
     linkmetadata :: jsonable(),         % metadata on link to this identifier
     links :: [{identifier(), jsonable()}], % remaining links to follow
@@ -21,22 +25,24 @@ search(Fun, Acc, StartIdentifier, Options) ->
     OptionsR = dby_options:options(Options),
     Traversal = OptionsR#options.traversal,
     MaxDepth = OptionsR#options.max_depth,
+    DiscoveryFn = discoveryfn(OptionsR#options.loop),
     Fn =
         fun() ->
-            do_search(Traversal, MaxDepth, Fun, StartIdentifier, Acc)
+            do_search(Traversal, DiscoveryFn, MaxDepth,
+                                                Fun, StartIdentifier, Acc)
         end,
     dby_db:transaction(Fn).
 
-do_search(depth, MaxDepth, Fun, StartIdentifier, Acc) ->
-    start_depth_search(MaxDepth, Fun, StartIdentifier, Acc);
-do_search(breadth, MaxDepth, Fun, StartIdentifier, Acc) ->
-    start_breadth_search(MaxDepth, Fun, StartIdentifier, Acc).
+do_search(depth, DiscoveryFn, MaxDepth, Fun, StartIdentifier, Acc) ->
+    start_depth_search(MaxDepth, DiscoveryFn, Fun, StartIdentifier, Acc);
+do_search(breadth, DiscoveryFn, MaxDepth, Fun, StartIdentifier, Acc) ->
+    start_breadth_search(MaxDepth, DiscoveryFn, Fun, StartIdentifier, Acc).
 
 %-------------------------------------------------------------------------------
 % depth search
 %-------------------------------------------------------------------------------
 
-start_depth_search(MaxDepth, Fun, StartIdentifier, Acc0) ->
+start_depth_search(MaxDepth, DiscoveryFn, Fun, StartIdentifier, Acc0) ->
     % seed the search with the starting identifier
     SearchStack = [
         #search{
@@ -46,7 +52,7 @@ start_depth_search(MaxDepth, Fun, StartIdentifier, Acc0) ->
             depth = 0
         }
     ],
-    depth_search(continue, MaxDepth, sets:new(), SearchStack, Acc0).
+    depth_search(continue, MaxDepth, DiscoveryFn, SearchStack, Acc0).
 
 depth_search(_, _, _, [], Acc) ->
     % we're done - ran out of links to follow
@@ -54,36 +60,37 @@ depth_search(_, _, _, [], Acc) ->
 depth_search(stop, _, _, _, Acc) ->
     % search function says stop
     lists:reverse(Acc);
-depth_search(skip, MaxDepth, Discovered, [_ | Rest], Acc) ->
+depth_search(skip, MaxDepth, DiscoveryFn, [_ | Rest], Acc) ->
     % do not traverse any links from the parent's identifier.
     % depth_search_next pushes the next identifier onto the stack 
     % before checking Control.
-    depth_search(continue, MaxDepth, Discovered, Rest, Acc);
-depth_search(continue, MaxDepth, Discovered, [#search{depth = Depth} | Rest], Acc) when Depth > MaxDepth ->
+    depth_search(continue, MaxDepth, DiscoveryFn, Rest, Acc);
+depth_search(continue, MaxDepth, DiscoveryFn, [#search{depth = Depth} | Rest], Acc) when Depth > MaxDepth ->
     % depth exceed maximum search depth - skip this identifier
-    depth_search(continue, MaxDepth, Discovered, Rest, Acc);
-depth_search(continue, MaxDepth, Discovered0, State0 = [Search0 = #search{identifier =  Identifier} | RestState], Acc0) ->
+    depth_search(continue, MaxDepth, DiscoveryFn, Rest, Acc);
+depth_search(continue, MaxDepth, DiscoveryFn0, State0 = [Search0 = #search{identifier =  Identifier, from = From} | RestState], Acc0) ->
     % discovered?
-    case sets:is_element(Identifier, Discovered0) of
+    case DiscoveryFn0(is, Identifier, From) of
         true ->
             % traverse the next link
-            State1 = depth_search_next(State0, Discovered0, Search0#search.fn),
-            depth_search(continue, MaxDepth, Discovered0, State1, Acc0);
+            State1 = depth_search_next(State0, DiscoveryFn0, Search0#search.fn),
+            depth_search(continue, MaxDepth, DiscoveryFn0, State1, Acc0);
         false ->
             % apply the search function
-            Discovered1 = sets:add_element(Identifier, Discovered0),
+            DiscoveryFn1 = DiscoveryFn0(add, Identifier, From),
             Search1 = read_identifier(Search0),
             {Control, Fun1, Acc1} = apply_fun(Search1#search.fn, Identifier, Search1#search.metadata, Search1#search.linkmetadata, Acc0),
             % traverse the next link
             State1 = [Search1 | RestState],
-            State2 = depth_search_next(State1, Discovered1, Fun1),
-            depth_search(Control, MaxDepth, Discovered1, State2, Acc1)
+            State2 = depth_search_next(State1, DiscoveryFn1, Fun1),
+            depth_search(Control, MaxDepth, DiscoveryFn1, State2, Acc1)
     end.
 
 % process the next identifier in the search
-depth_search_next([Search0 | SearchStack0], Discovered, Fun1) ->
+depth_search_next([Search0 = #search{links = Links, identifier = Identifier} |
+                                            SearchStack0], DiscoveryFn, Fun1) ->
     % get the next link to traverse
-    case first_not_discovered(Search0#search.links, Discovered) of
+    case first_not_discovered(Identifier, Links, DiscoveryFn) of
         [] ->
             % no more links to follow at this identifier.
             % pop the stack and continue.
@@ -96,6 +103,7 @@ depth_search_next([Search0 | SearchStack0], Discovered, Fun1) ->
                     depth = Search0#search.depth + 1,
                     fn = Fun1,
                     identifier = NeighborIdentifier,
+                    from = Identifier,
                     linkmetadata = LinkMetadata
                 },
                 % remove the link just traversed from the list of links
@@ -104,17 +112,17 @@ depth_search_next([Search0 | SearchStack0], Discovered, Fun1) ->
             ]
     end.
 
-first_not_discovered(Links, Discovered) ->
+first_not_discovered(Identifier, Links, DiscoveryFn) ->
     lists:dropwhile(
-        fun({Identifier, _}) ->
-            sets:is_element(Identifier, Discovered)
+        fun({NeighborIdentifier, _}) ->
+            DiscoveryFn(is, NeighborIdentifier, Identifier)
         end, Links).
 
 %-------------------------------------------------------------------------------
 % breadth search
 %-------------------------------------------------------------------------------
 
-start_breadth_search(MaxDepth, Fun, StartIdentifier, Acc0) ->
+start_breadth_search(MaxDepth, DiscoveryFn, Fun, StartIdentifier, Acc0) ->
     Search = #search{
         fn = Fun,
         identifier = StartIdentifier,
@@ -123,7 +131,7 @@ start_breadth_search(MaxDepth, Fun, StartIdentifier, Acc0) ->
     },
     breadth_search(MaxDepth,
         queue:in(Search, queue:new()),
-        sets:add_element(StartIdentifier, sets:new()),
+        DiscoveryFn(add, StartIdentifier, undefined),
         Acc0).
 
 breadth_search(MaxDepth, Q0, Queued0, Acc0) ->
@@ -153,20 +161,21 @@ queue_links(skip, _, _, _, Q, Queued) ->
 queue_links(continue, MaxDepth, _, #search{depth = Depth}, Q, Queued)
                                                     when Depth >= MaxDepth ->
     {Q, Queued};
-queue_links(_, _, Fun, #search{links = Links, depth = Depth}, Q0, Queued0) ->
+queue_links(_, _, Fun, #search{identifier = Identifier, links = Links, depth = Depth}, Q0, Queued0) ->
     lists:foldl(
-        fun({Identifier, LinkMetadata}, {Q, Queued}) ->
-            case sets:is_element(Identifier, Queued) of
+        fun({NeighborIdentifier, LinkMetadata}, {Q, Queued}) ->
+            case Queued(is, NeighborIdentifier, Identifier) of
                 true ->
                     {Q, Queued};
                 false ->
                     Search = #search{
                         fn = Fun,
-                        identifier = Identifier,
+                        identifier = NeighborIdentifier,
+                        from = Identifier,
                         linkmetadata = LinkMetadata,
                         depth = Depth + 1
                     },
-                    {queue:in(Search, Q), sets:add_element(Identifier, Queued)}
+                    {queue:in(Search, Q), Queued(add, NeighborIdentifier, Identifier)}
             end
         end, {Q0, Queued0}, Links).
 
@@ -201,3 +210,48 @@ read_identifier(Search = #search{identifier = Identifier}) ->
             }
     end.
 
+% Generate the function for loop detection.  The function takes
+% three arguments: operation (add, is), the identifier, and
+% the identifier's neighbor.
+%
+% 'add' returns an updated version of itself.
+% "is" returns true/false indicating if the
+% Identifier or Link is already discovered.
+%
+% none - no check is made.  'is' always returns false.
+%
+% identifier - 'add' remembers the identifier by updating
+%   adding the identifier to the set.  Returns a new function
+%   where the updated set is in the closure.
+%
+% link - 'add' remembers the link by adding the identifier and
+%   its neighbor as a tuple, ordered both ways.  Returns a new
+%   function where the updated set is in the closure.
+discoveryfn(none) ->
+    fun F(add, _, _) ->
+            F;
+        F(is, _, _) ->
+            false
+    end;
+discoveryfn(identifier) ->
+    Fn = fun F(add, Identifier, _, Discovered) ->
+                gen_discover(F, sets:add_element(Identifier, Discovered));
+             F(is, Identifier, _, Discovered) ->
+                sets:is_element(Identifier, Discovered)
+    end,
+    gen_discover(Fn, sets:new());
+discoveryfn(link) ->
+    Fn = fun F(add, Identifier, NeighborIdentifier, Discovered) ->
+                gen_discover(F,
+                    sets:add_element({NeighborIdentifier, Identifier},
+                        sets:add_element({Identifier, NeighborIdentifier},
+                                                                Discovered)));
+             F(is, Identifier, NeighborIdentifier, Discovered) ->
+                sets:is_element({Identifier, NeighborIdentifier}, Discovered)
+    end,
+    gen_discover(Fn, sets:new()).
+
+gen_discover(Fn, Discovered) ->
+    fun(Op, Identifier, NeighborIdentifier) ->
+        Fn(Op, Identifier, NeighborIdentifier, Discovered)
+    end.

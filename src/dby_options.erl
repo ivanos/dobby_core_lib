@@ -19,10 +19,20 @@ options(Options) ->
             Record#options{traversal = depth};
            ({max_depth, Depth}, Record) when Depth >= 0, is_integer(Depth) ->
             Record#options{max_depth = Depth};
+           ({loop, none}, Record) ->
+            Record#options{loop = none};
+           ({loop, link}, Record) ->
+            Record#options{loop = link};
+           ({loop, identifier}, Record) ->
+            Record#options{loop = identifier};
            ({delta_fun, DFun}, Record) when is_function(DFun) ->
             Record#options{delta_fun = DFun};
            ({delivery_fun, SFun}, Record) when is_function(SFun) ->
             Record#options{delivery_fun = SFun};
+           (user, Record) ->
+            Record#options{type = user};
+           (system, Record) ->
+            Record#options{type = system};
            (BadArg, _) ->
             throw({badarg, BadArg})
         end, #options{}, Options).

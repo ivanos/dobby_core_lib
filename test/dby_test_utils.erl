@@ -38,6 +38,13 @@ example2() ->
         identifier1(<<"E">>,[<<"C">>])
     ].
 
+% A -- B
+example3() ->
+    [
+        identifier1(<<"A">>,[<<"B">>]),
+        identifier1(<<"B">>,[<<"A">>])
+    ].
+
 identifier1(Id, Links) ->
     #identifier{id = Id, metadata = id_metadata1(Id), links = links1(Links)}.
 
