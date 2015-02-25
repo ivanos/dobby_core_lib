@@ -25,7 +25,7 @@
 
 % database representation of a subscription definition
 -record(subscription, {
-    id :: subscription(),
+    id :: term(),
     searchfun :: search_fun(),
     acc0 :: term(),
     start_identifier :: identifier(),

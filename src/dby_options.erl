@@ -29,10 +29,6 @@ options(Options) ->
             Record#options{delta_fun = DFun};
            ({delivery_fun, SFun}, Record) when is_function(SFun) ->
             Record#options{delivery_fun = SFun};
-           (user, Record) ->
-            Record#options{type = user};
-           (system, Record) ->
-            Record#options{type = system};
            (BadArg, _) ->
             throw({badarg, BadArg})
         end, #options{}, Options).
