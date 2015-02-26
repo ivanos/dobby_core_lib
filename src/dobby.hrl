@@ -1,41 +1,33 @@
 % options for all API functions
 -record(options, {
-    publish = message :: persistent | message,
-    traversal = breadth :: breadth | depth,
+    publish = message :: publish_type(),
+    traversal = breadth :: search_algorithm(),
+    type = user :: identifier_type(),
     max_depth = 0 :: non_neg_integer(),
     loop = identifier :: loop_detection(),
-    delta_fun = fun dby_options:delta_default/2 :: fun(),
-    delivery_fun = fun dby_options:delivery_default/1 :: fun()
+    delta_fun = fun dby_options:delta_default/2 :: delta_fun(),
+    delivery_fun = fun dby_options:delivery_default/1 :: delivery_fun()
 }).
 
 % database representation of an identifier (vertex)
 -record(identifier, {
     id :: dby_identifier(),
+    type :: identifier_type(),
     metadata = null :: jsonable(),
     links = #{} :: #{dby_identifier() => jsonable()}
 }).
 
-% XXX store the subcriptions in the graph
-% subscription is an identifier
-%   metadata has other values
-%   linked to results of search
-% On publish, publish follows links on identifiers and links it modifies to
-% the subscriptions, building a list of subscriptions to run.
-% Passes the subscriptions to dby_subscribe to rerun searches.
+% metadata of a subscription identifier
+-type subscription() :: #{
+    type => subscription,
+    search_fun => search_fun(),
+    acc0 => term(),
+    start_identifier => dby_identifier(),
+    options => #options{},
+    last_result => term()
+}.
 
-% database representation of a subscription definition
--record(subscription, {
-    id :: term(),
-    searchfun :: search_fun(),
-    acc0 :: term(),
-    start_identifier :: dby_identifier(),
-    options :: #options{},
-    last_result :: term(),
-    last_discovered :: [dby_identifier()]
-}).
-
-% database representation of a subscriber.  Maps identifiers to subscriptions.
--record(subscriber, {
-    identifier :: dby_identifier(),
-    id = #subscription{}
-}).
+% metadata of a subscription link
+-type subscriber() :: #{
+    type => subscriber
+}.

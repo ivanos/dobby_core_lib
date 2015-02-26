@@ -59,7 +59,7 @@ identifier(_) ->
 persist_endpoint(Identifier) when is_binary(Identifier) ->
     persist_endpoint({Identifier, nochange});
 persist_endpoint({Identifier, Metadata}) ->
-    IdentifierR = read_identifier(Identifier),
+    IdentifierR = dby_store:read_identifier(Identifier),
     IdentifierR1 = update_identifier_metadata(IdentifierR, Metadata),
     ok = write_identifier(IdentifierR1).
 
@@ -67,16 +67,10 @@ persist_endpoint(Identifier, NeighborIdentifier, LinkMetadata)
                                             when is_binary(Identifier) ->
     persist_endpoint({Identifier, nochange}, NeighborIdentifier, LinkMetadata);
 persist_endpoint({Identifier, Metadata}, NeighborIdentifier, LinkMetadata) ->
-    IdentifierR = read_identifier(Identifier),
+    IdentifierR = dby_store:read_identifier(Identifier),
     IdentifierR1 = update_identifier_metadata(IdentifierR, Metadata),
     IdentifierR2 = update_link(IdentifierR1, NeighborIdentifier, LinkMetadata),
     ok = write_identifier(IdentifierR2).
-
-read_identifier(Identifier) ->
-    case dby_db:read({identifier, Identifier}) of
-        [R] -> R;
-        _ -> #identifier{id = Identifier}
-    end.
 
 write_identifier(IdentifierR = #identifier{id = Identifier, metadata = delete}) ->
     % delete record

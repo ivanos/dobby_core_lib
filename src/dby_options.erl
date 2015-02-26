@@ -17,6 +17,10 @@ options(Options) ->
             Record#options{traversal = breadth};
            (depth, Record) ->
             Record#options{traversal = depth};
+           (system, Record) ->
+            Record#options{type = system};
+           (user, Record) ->
+            Record#options{type = user};
            ({max_depth, Depth}, Record) when Depth >= 0, is_integer(Depth) ->
             Record#options{max_depth = Depth};
            ({loop, none}, Record) ->

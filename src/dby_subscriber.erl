@@ -24,17 +24,10 @@ do_publish(Publish, Identifiers) ->
 % from the identifiers, make a unique list of the subscriptions that
 % may see a delta.  Return a list of subscription ids.
 subscriptions(Publish, Identifiers) ->
-    subscription_id(
-        lists:append(
-            lists:foldl(
-                fun(Identifier, Identifiers) ->
-                    [dby_db:read({subscription, Identifier}) | Identifiers]
-                end, [], Identifiers)
-        )
-    ).
+    [].
 
 subscription_id(Subscriptions) ->
-    lists:usort([Id || #subscriber{id = Id} <- subscriber]).
+    lists:usort([Id || #{id := Id} <- Subscriptions]).
 
 deliver(Publish, Subscriptions) ->
     % run each subscription search
