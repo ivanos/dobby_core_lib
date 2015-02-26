@@ -4,8 +4,6 @@
 -include_lib("dobby_clib/include/dobby.hrl").
 -include("../src/dobby.hrl").
 
--define(TRANSACTION, transactionid).
-
 dby_publish_test_() ->
     {setup,
      fun setup/0,
