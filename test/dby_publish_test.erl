@@ -44,7 +44,7 @@ publish1() ->
     LinkMetadata = #{<<"key1">> => <<"value1">>},
     IdentifierR1 = #identifier{id = Identifier1, metadata = null, links = maps:put(Identifier2, LinkMetadata, #{})},
     IdentifierR2 = #identifier{id = Identifier2, metadata = null, links = maps:put(Identifier1, LinkMetadata, #{})},
-    dby_read([[],[]]),
+    dby_test_utils:dby_read([[],[]]),
     ok = dby_publish:publish([{Identifier1, Identifier2, LinkMetadata}], [persistent]),
     ?assert(meck:called(dby_db, write, [IdentifierR1])),
     ?assert(meck:called(dby_db, write, [IdentifierR2])).
@@ -58,7 +58,7 @@ publish2() ->
     LinkMetadata = #{<<"key1">> => <<"value1">>},
     IdentifierR1 = #identifier{id = Identifier1, metadata = Identifier1Metadata, links = maps:put(Identifier2, LinkMetadata, #{})},
     IdentifierR2 = #identifier{id = Identifier2, metadata = Identifier2Metadata, links = maps:put(Identifier1, LinkMetadata, #{})},
-    dby_read([[],[]]),
+    dby_test_utils:dby_read([[],[]]),
     ok = dby_publish:publish([{{Identifier1, Identifier1Metadata}, {Identifier2, Identifier2Metadata}, LinkMetadata}], [persistent]),
     ?assert(meck:called(dby_db, write, [IdentifierR1])),
     ?assert(meck:called(dby_db, write, [IdentifierR2])).
@@ -71,7 +71,7 @@ publish3() ->
     NewLinkMetadata = #{<<"key1">> => <<"value2">>},
     IdentifierR1 = #identifier{id = Identifier1, metadata = null, links = maps:put(Identifier2, LinkMetadata, #{})},
     IdentifierR2 = #identifier{id = Identifier2, metadata = null, links = maps:put(Identifier1, LinkMetadata, #{})},
-    dby_read([[IdentifierR1],[IdentifierR2]]),
+    dby_test_utils:dby_read([[IdentifierR1],[IdentifierR2]]),
     ok = dby_publish:publish([{Identifier1, Identifier2, NewLinkMetadata}], [persistent]),
     ?assert(meck:called(dby_db, write, [IdentifierR1#identifier{links = maps:put(Identifier2, NewLinkMetadata, #{})}])),
     ?assert(meck:called(dby_db, write, [IdentifierR2#identifier{links = maps:put(Identifier1, NewLinkMetadata, #{})}])).
@@ -85,7 +85,7 @@ publish4() ->
     NewLinkMetadata = DeltaFn(LinkMetadata),
     IdentifierR1 = #identifier{id = Identifier1, metadata = null, links = maps:put(Identifier2, LinkMetadata, #{})},
     IdentifierR2 = #identifier{id = Identifier2, metadata = null, links = maps:put(Identifier1, LinkMetadata, #{})},
-    dby_read([[IdentifierR1],[IdentifierR2]]),
+    dby_test_utils:dby_read([[IdentifierR1],[IdentifierR2]]),
     ok = dby_publish:publish([{Identifier1, Identifier2, DeltaFn}], [persistent]),
     ?assert(meck:called(dby_db, write, [IdentifierR1#identifier{links = maps:put(Identifier2, NewLinkMetadata, #{})}])),
     ?assert(meck:called(dby_db, write, [IdentifierR2#identifier{links = maps:put(Identifier1, NewLinkMetadata, #{})}])).
@@ -101,7 +101,7 @@ publish5() ->
     LinkMetadata = #{<<"key1">> => <<"value1">>},
     IdentifierR1 = #identifier{id = Identifier1, metadata = Identifier1Metadata, links = maps:put(Identifier2, LinkMetadata, #{})},
     IdentifierR2 = #identifier{id = Identifier2, metadata = Identifier2Metadata, links = maps:put(Identifier1, LinkMetadata, #{})},
-    dby_read([[IdentifierR1],[IdentifierR2]]),
+    dby_test_utils:dby_read([[IdentifierR1],[IdentifierR2]]),
     ok = dby_publish:publish([{{Identifier1, NewIdentifier1Metadata}, {Identifier2, NewIdentifier2Metadata}, LinkMetadata}], [persistent]),
     ?assert(meck:called(dby_db, write, [IdentifierR1#identifier{metadata = NewIdentifier1Metadata}])),
     ?assert(meck:called(dby_db, write, [IdentifierR2#identifier{metadata = NewIdentifier2Metadata}])).
@@ -118,7 +118,7 @@ publish6() ->
     LinkMetadata = #{<<"key1">> => <<"value1">>},
     IdentifierR1 = #identifier{id = Identifier1, metadata = Identifier1Metadata, links = maps:put(Identifier2, LinkMetadata, #{})},
     IdentifierR2 = #identifier{id = Identifier2, metadata = Identifier2Metadata, links = maps:put(Identifier1, LinkMetadata, #{})},
-    dby_read([[IdentifierR1],[IdentifierR2]]),
+    dby_test_utils:dby_read([[IdentifierR1],[IdentifierR2]]),
     ok = dby_publish:publish([{{Identifier1, DeltaFn}, {Identifier2, DeltaFn}, LinkMetadata}], [persistent]),
     ?assert(meck:called(dby_db, write, [IdentifierR1#identifier{metadata = NewIdentifier1Metadata}])),
     ?assert(meck:called(dby_db, write, [IdentifierR2#identifier{metadata = NewIdentifier2Metadata}])).
@@ -126,7 +126,7 @@ publish6() ->
 publish7() ->
     % delete identifier that's not in graph
     Identifier1 = <<"id1">>,
-    dby_read([[]]),
+    dby_test_utils:dby_read([[]]),
     dby_publish:publish([{Identifier1, delete}], [persistent]),
     ?assert(meck:called(dby_db, delete, [{identifier, Identifier1}])).
 
@@ -135,7 +135,7 @@ publish8() ->
     Identifier1 = <<"id1">>,
     Identifier1Metadata = #{<<"key_id1">> => <<"value_id1">>},
     IdentifierR1 = #identifier{id = Identifier1, metadata = Identifier1Metadata, links = #{}},
-    dby_read([[IdentifierR1]]),
+    dby_test_utils:dby_read([[IdentifierR1]]),
     dby_publish:publish([{Identifier1, delete}], [persistent]),
     ?assert(meck:called(dby_db, delete, [{identifier, Identifier1}])).
 
@@ -148,7 +148,7 @@ publish9() ->
     LinkMetadata = #{<<"key1">> => <<"value1">>},
     IdentifierR1 = #identifier{id = Identifier1, metadata = Identifier1Metadata, links = maps:put(Identifier2, LinkMetadata, #{})},
     IdentifierR2 = #identifier{id = Identifier2, metadata = Identifier2Metadata, links = maps:put(Identifier1, LinkMetadata, #{})},
-    dby_read([[IdentifierR1],[IdentifierR2]]),
+    dby_test_utils:dby_read([[IdentifierR1],[IdentifierR2]]),
     dby_publish:publish([{Identifier1, delete}], [persistent]),
     ?assert(meck:called(dby_db, delete, [{identifier, Identifier1}])),
     ?assert(meck:called(dby_db, write, [IdentifierR2#identifier{links = #{}}])).
@@ -162,7 +162,7 @@ publish10() ->
     LinkMetadata = #{<<"key1">> => <<"value1">>},
     IdentifierR1 = #identifier{id = Identifier1, metadata = Identifier1Metadata, links = maps:put(Identifier2, LinkMetadata, #{})},
     IdentifierR2 = #identifier{id = Identifier2, metadata = Identifier2Metadata, links = maps:put(Identifier1, LinkMetadata, #{})},
-    dby_read([[IdentifierR1],[IdentifierR2]]),
+    dby_test_utils:dby_read([[IdentifierR1],[IdentifierR2]]),
     dby_publish:publish([{Identifier1, Identifier2, delete}], [persistent]),
     ?assert(meck:called(dby_db, write, [IdentifierR2#identifier{links = #{}}])),
     ?assert(meck:called(dby_db, write, [IdentifierR1#identifier{links = #{}}])).
@@ -171,6 +171,3 @@ publish10() ->
 % ------------------------------------------------------------------------------
 % helper functions
 % ------------------------------------------------------------------------------
-
-dby_read(Items) ->
-    ok = meck:expect(dby_db, read, 1, meck:seq(Items)).

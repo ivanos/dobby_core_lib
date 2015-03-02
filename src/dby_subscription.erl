@@ -23,7 +23,7 @@
 subscribe(Fun, Acc, StartIdentifier, Options) ->
     % store subscription in the graph
     Subscription = #{
-        type => subscription,
+        system => subscription,
         search_fun => Fun,
         acc0 => Acc,
         start_identifier => StartIdentifier,
@@ -31,8 +31,7 @@ subscribe(Fun, Acc, StartIdentifier, Options) ->
     },
     Id = id(),
     Fn = fun() ->
-        dby_publish:publish(subscription(Id, Subscription),
-                                                [system, persistent])
+        dby_publish:publish(subscription(Id, Subscription), [persistent])
     end,
     case dby_db:transaction(Fn) of
         ok ->
@@ -44,7 +43,7 @@ subscribe(Fun, Acc, StartIdentifier, Options) ->
 -spec delete(identifier()) -> ok | {error, reason()}.
 delete(SubscriptionId) ->
     Fn = fun() ->
-        dby_publish:publish(SubscriptionId, delete, [system, persistent])
+        dby_publish:publish(SubscriptionId, delete, [persistent])
     end,
     dby_db:transaction(Fn).
 
@@ -52,7 +51,7 @@ delete(SubscriptionId) ->
 publish(SubscriptionId) ->
     % XXX update subscriber links to reflect discovered identifiers
     Fn = fun() ->
-        dby:publish(do_publish(SubscriptionId), [system, persistent])
+        dby_publish:publish(do_publish(SubscriptionId), [persistent])
     end,
     dby_db:transaction(Fn).
 
@@ -106,13 +105,13 @@ update_discovered(SubscriptionId, LastDiscovered, Discovered) ->
         % added links
         lists:foldl(
             fun(Identifier, Acc) ->
-                [{SubscriptionId, Identifier, #{type => subscriber}} | Acc]
-            end, [], LastDiscovered --  Discovered),
+                [{SubscriptionId, Identifier, #{system => subscription}} | Acc]
+            end, [], Discovered --  LastDiscovered),
         % removed links
         lists:foldl(
             fun(Identifier, Acc) ->
                 [{SubscriptionId, Identifier, delete} | Acc]
-            end, [], Discovered -- LastDiscovered)
+            end, [], LastDiscovered -- Discovered)
     ].
 
 publish_id_change(Id, Id) ->
@@ -126,7 +125,7 @@ set_last_result(Id = #identifier{metadata = Subscription}, LastResult) ->
 set_delete(Id = #identifier{}) ->
     Id#identifier{metadata = delete}.
 
-subscription(Id, Subscription0 = #{type := subscription}) ->
+subscription(Id, Subscription0 = #{system := subscription}) ->
     % run search and identify identifiers touched by search
     {Discovered, SearchResult} = search(Subscription0),
     % return list of identifiers to publish
@@ -135,7 +134,7 @@ subscription(Id, Subscription0 = #{type := subscription}) ->
         {Id, Subscription0#{last_result => SearchResult}} |
         lists:map(
             fun(Identifier) ->
-                {Id, Identifier, #{type => subscriber}}
+                {Id, Identifier, #{system => subscription}}
             end, Discovered)
     ].
 
@@ -145,7 +144,7 @@ search(#{
         acc0 := Acc,
         start_identifier := StartIdentifier,
         options := Options}) ->
-    case dby:search(search_fun(Fun), {[], Acc}, StartIdentifier,
+    case dby_search:search(search_fun(Fun), {[], Acc}, StartIdentifier,
                                                 search_options(Options)) of
         {error, Reason} ->
             throw(Reason);

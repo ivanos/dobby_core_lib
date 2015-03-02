@@ -12,9 +12,8 @@
 % database representation of an identifier (vertex)
 -record(identifier, {
     id :: dby_identifier(),
-    type :: identifier_type(),
-    metadata = null :: jsonable(),
-    links = #{} :: #{dby_identifier() => jsonable()}
+    metadata = null :: jsonable() | system_metadata(),
+    links = #{} :: #{dby_identifier() => jsonable() | system_metadata()}
 }).
 
 % metadata of a subscription identifier

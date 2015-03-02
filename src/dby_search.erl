@@ -5,9 +5,6 @@
 -include_lib("dobby_clib/include/dobby.hrl").
 -include("dobby.hrl").
 
-% XXX add user/system type
-% XXX option to allow loops
-
 -record(search, {
     fn :: fun(),
     identifier :: dby_identifier(),
@@ -25,24 +22,27 @@ search(Fun, Acc, StartIdentifier, Options) ->
     OptionsR = dby_options:options(Options),
     Traversal = OptionsR#options.traversal,
     MaxDepth = OptionsR#options.max_depth,
+    TypeFn = typefn(OptionsR#options.type),
     DiscoveryFn = discoveryfn(OptionsR#options.loop),
     Fn =
         fun() ->
-            do_search(Traversal, DiscoveryFn, MaxDepth,
+            do_search(Traversal, TypeFn, DiscoveryFn, MaxDepth,
                                                 Fun, StartIdentifier, Acc)
         end,
     dby_db:transaction(Fn).
 
-do_search(depth, DiscoveryFn, MaxDepth, Fun, StartIdentifier, Acc) ->
-    start_depth_search(MaxDepth, DiscoveryFn, Fun, StartIdentifier, Acc);
-do_search(breadth, DiscoveryFn, MaxDepth, Fun, StartIdentifier, Acc) ->
-    start_breadth_search(MaxDepth, DiscoveryFn, Fun, StartIdentifier, Acc).
+do_search(depth, TypeFn, DiscoveryFn, MaxDepth, Fun, StartIdentifier, Acc) ->
+    start_depth_search(MaxDepth, TypeFn, DiscoveryFn,
+                                                Fun, StartIdentifier, Acc);
+do_search(breadth, TypeFn, DiscoveryFn, MaxDepth, Fun, StartIdentifier, Acc) ->
+    start_breadth_search(MaxDepth, TypeFn, DiscoveryFn,
+                                                Fun, StartIdentifier, Acc).
 
 %-------------------------------------------------------------------------------
 % depth search
 %-------------------------------------------------------------------------------
 
-start_depth_search(MaxDepth, DiscoveryFn, Fun, StartIdentifier, Acc0) ->
+start_depth_search(MaxDepth, TypeFn, DiscoveryFn, Fun, StartIdentifier, Acc0) ->
     % seed the search with the starting identifier
     SearchStack = [
         #search{
@@ -52,45 +52,54 @@ start_depth_search(MaxDepth, DiscoveryFn, Fun, StartIdentifier, Acc0) ->
             depth = 0
         }
     ],
-    depth_search(continue, MaxDepth, DiscoveryFn, SearchStack, Acc0).
+    depth_search(continue, MaxDepth, TypeFn, DiscoveryFn, SearchStack, Acc0).
 
-depth_search(_, _, _, [], Acc) ->
+depth_search(_, _, _, _, [], Acc) ->
     % we're done - ran out of links to follow
-    lists:reverse(Acc);
-depth_search(stop, _, _, _, Acc) ->
+    Acc;
+depth_search(stop, _, _, _, _, Acc) ->
     % search function says stop
-    lists:reverse(Acc);
-depth_search(skip, MaxDepth, DiscoveryFn, [_ | Rest], Acc) ->
+    Acc;
+depth_search(skip, MaxDepth, TypeFn, DiscoveryFn, [_ | Rest], Acc) ->
     % do not traverse any links from the parent's identifier.
     % depth_search_next pushes the next identifier onto the stack 
     % before checking Control.
-    depth_search(continue, MaxDepth, DiscoveryFn, Rest, Acc);
-depth_search(continue, MaxDepth, DiscoveryFn, [#search{depth = Depth} | Rest], Acc) when Depth > MaxDepth ->
+    depth_search(continue, MaxDepth, TypeFn, DiscoveryFn, Rest, Acc);
+depth_search(continue, MaxDepth, TypeFn, DiscoveryFn,
+                [#search{depth = Depth} | Rest], Acc) when Depth > MaxDepth ->
     % depth exceed maximum search depth - skip this identifier
-    depth_search(continue, MaxDepth, DiscoveryFn, Rest, Acc);
-depth_search(continue, MaxDepth, DiscoveryFn0, State0 = [Search0 = #search{identifier =  Identifier, from = From} | RestState], Acc0) ->
+    depth_search(continue, MaxDepth, TypeFn, DiscoveryFn, Rest, Acc);
+depth_search(continue, MaxDepth, TypeFn, DiscoveryFn0,
+        State0 = [Search0 = #search{identifier =  Identifier, from = From} |
+                                                        RestState], Acc0) ->
     % discovered?
     case DiscoveryFn0(is, Identifier, From) of
         true ->
             % traverse the next link
-            State1 = depth_search_next(State0, DiscoveryFn0, Search0#search.fn),
-            depth_search(continue, MaxDepth, DiscoveryFn0, State1, Acc0);
+            State1 = depth_search_next(State0, TypeFn, DiscoveryFn0,
+                                                        Search0#search.fn),
+            depth_search(continue, MaxDepth, TypeFn, DiscoveryFn0,
+                                                        State1, Acc0);
         false ->
             % apply the search function
-            DiscoveryFn1 = DiscoveryFn0(add, Identifier, From),
             Search1 = read_identifier(Search0),
-            {Control, Fun1, Acc1} = apply_fun(Search1#search.fn, Identifier, Search1#search.metadata, Search1#search.linkmetadata, Acc0),
+            DiscoveryFn1 = DiscoveryFn0(add, Identifier, From),
+            {Control, Fun1, Acc1} = apply_fun(Search1#search.fn,
+                                              Identifier,
+                                              Search1#search.metadata,
+                                              Search1#search.linkmetadata,
+                                              Acc0),
             % traverse the next link
             State1 = [Search1 | RestState],
-            State2 = depth_search_next(State1, DiscoveryFn1, Fun1),
-            depth_search(Control, MaxDepth, DiscoveryFn1, State2, Acc1)
+            State2 = depth_search_next(State1, TypeFn, DiscoveryFn1, Fun1),
+            depth_search(Control, MaxDepth, TypeFn, DiscoveryFn1, State2, Acc1)
     end.
 
 % process the next identifier in the search
 depth_search_next([Search0 = #search{links = Links, identifier = Identifier} |
-                                            SearchStack0], DiscoveryFn, Fun1) ->
+                                    SearchStack0], TypeFn, DiscoveryFn, Fun1) ->
     % get the next link to traverse
-    case first_not_discovered(Identifier, Links, DiscoveryFn) of
+    case first_not_discovered(Identifier, Links, TypeFn, DiscoveryFn) of
         [] ->
             % no more links to follow at this identifier.
             % pop the stack and continue.
@@ -112,9 +121,11 @@ depth_search_next([Search0 = #search{links = Links, identifier = Identifier} |
             ]
     end.
 
-first_not_discovered(Identifier, Links, DiscoveryFn) ->
+first_not_discovered(Identifier, Links, TypeFn, DiscoveryFn) ->
     lists:dropwhile(
-        fun({NeighborIdentifier, _}) ->
+        fun({NeighborIdentifier, LinkMetadata}) ->
+            (not TypeFn(LinkMetadata))
+                orelse
             DiscoveryFn(is, NeighborIdentifier, Identifier)
         end, Links).
 
@@ -122,7 +133,8 @@ first_not_discovered(Identifier, Links, DiscoveryFn) ->
 % breadth search
 %-------------------------------------------------------------------------------
 
-start_breadth_search(MaxDepth, DiscoveryFn, Fun, StartIdentifier, Acc0) ->
+start_breadth_search(MaxDepth, TypeFn, DiscoveryFn,
+                                            Fun, StartIdentifier, Acc0) ->
     Search = #search{
         fn = Fun,
         identifier = StartIdentifier,
@@ -131,13 +143,14 @@ start_breadth_search(MaxDepth, DiscoveryFn, Fun, StartIdentifier, Acc0) ->
     },
     breadth_search(MaxDepth,
         queue:in(Search, queue:new()),
+        TypeFn,
         DiscoveryFn(add, StartIdentifier, undefined),
         Acc0).
 
-breadth_search(MaxDepth, Q0, Queued0, Acc0) ->
+breadth_search(MaxDepth, Q0, TypeFn, Queued0, Acc0) ->
     case queue:len(Q0) of
         0 ->
-            lists:reverse(Acc0);
+            Acc0;
         _ ->
             {{value, Search}, Q1} = queue:out(Q0),
             Search1 = #search{
@@ -149,22 +162,25 @@ breadth_search(MaxDepth, Q0, Queued0, Acc0) ->
             {Control, Fun1, Acc1} = apply_fun(Fun, Identifier,
                                     IdentifierMetadata, LinkMetadata, Acc0),
             {Q2, Queued1} = queue_links(Control, MaxDepth,
-                                                Fun1, Search1, Q1, Queued0),
-            breadth_search(MaxDepth, Q2, Queued1, Acc1)
+                                            Fun1, Search1, Q1, TypeFn, Queued0),
+            breadth_search(MaxDepth, Q2, TypeFn, Queued1, Acc1)
     end.
 
-queue_links(stop, _, _, _, _, Queued) ->
+queue_links(stop, _, _, _, _, _, Queued) ->
     % empty queue to stop search
     {queue:new(), Queued};
-queue_links(skip, _, _, _, Q, Queued) ->
+queue_links(skip, _, _, _, Q, _, Queued) ->
     {Q, Queued};
-queue_links(continue, MaxDepth, _, #search{depth = Depth}, Q, Queued)
+queue_links(continue, MaxDepth, _, #search{depth = Depth}, Q, _, Queued)
                                                     when Depth >= MaxDepth ->
     {Q, Queued};
-queue_links(_, _, Fun, #search{identifier = Identifier, links = Links, depth = Depth}, Q0, Queued0) ->
+queue_links(_, _, Fun, #search{identifier = Identifier,
+                               links = Links,
+                               depth = Depth}, Q0, TypeFn, Queued0) ->
     lists:foldl(
         fun({NeighborIdentifier, LinkMetadata}, {Q, Queued}) ->
-            case Queued(is, NeighborIdentifier, Identifier) of
+            case (not TypeFn(LinkMetadata)) orelse
+                        Queued(is, NeighborIdentifier, Identifier) of
                 true ->
                     {Q, Queued};
                 false ->
@@ -175,7 +191,8 @@ queue_links(_, _, Fun, #search{identifier = Identifier, links = Links, depth = D
                         linkmetadata = LinkMetadata,
                         depth = Depth + 1
                     },
-                    {queue:in(Search, Q), Queued(add, NeighborIdentifier, Identifier)}
+                    {queue:in(Search, Q),
+                     Queued(add, NeighborIdentifier, Identifier)}
             end
         end, {Q0, Queued0}, Links).
 
@@ -254,4 +271,13 @@ discoveryfn(link) ->
 gen_discover(Fn, Discovered) ->
     fun(Op, Identifier, NeighborIdentifier) ->
         Fn(Op, Identifier, NeighborIdentifier, Discovered)
+    end.
+
+typefn(system) ->
+    fun(#{system := _}) -> true;
+       (_) -> false
+    end;
+typefn(user) ->
+    fun(#{system := _}) -> false;
+       (_) -> true
     end.

@@ -5,7 +5,11 @@
 -include_lib("dobby_clib/include/dobby.hrl").
 -include("dobby.hrl").
 
+% XXX system, user type
+
 -spec publish([link() | dby_endpoint()], [publish_option()]) -> ok | reason().
+publish([], _) ->
+    ok;
 publish(Data, Options) ->
     % XXX need to catch badarg
     Publish = (dby_options:options(Options))#options.publish,

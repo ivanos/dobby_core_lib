@@ -29,9 +29,9 @@ options(Options) ->
             Record#options{loop = link};
            ({loop, identifier}, Record) ->
             Record#options{loop = identifier};
-           ({delta_fun, DFun}, Record) when is_function(DFun) ->
+           ({delta, DFun}, Record) when is_function(DFun) ->
             Record#options{delta_fun = DFun};
-           ({delivery_fun, SFun}, Record) when is_function(SFun) ->
+           ({delivery, SFun}, Record) when is_function(SFun) ->
             Record#options{delivery_fun = SFun};
            (BadArg, _) ->
             throw({badarg, BadArg})

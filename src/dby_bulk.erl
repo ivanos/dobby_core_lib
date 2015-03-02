@@ -48,12 +48,18 @@ import(json, Filename) ->
 % export helper functions
 % ==============================================================================
 
+json_link(#identifier{metadata = #{system := _}}) ->
+    % do not save system identifiers
+    [];
 json_link(#identifier{id = Identifier, metadata = Metadata, links = Links}) ->
     [
         {[{<<"identifier">>, Identifier},
           {<<"metadata">>, json_metadata(Metadata)}]},
         maps:fold(
-            fun(NeighborIdentifier, LinkMetadata, Jsons) ->
+            fun(_, #{system := _}, Jsons) ->
+                % do not save links to system identifiers
+                Jsons;
+               (NeighborIdentifier, LinkMetadata, Jsons) ->
                 [
                     {[{<<"link">>, [Identifier, NeighborIdentifier]},
                       {<<"metadata">>, json_metadata(LinkMetadata)}]} |

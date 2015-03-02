@@ -41,6 +41,21 @@ handle_call({dby_search, [Fun, Acc, StartIdentifier, Options]}, From, State) ->
     run(From,
         fun() -> dby_search:search(Fun, Acc, StartIdentifier, Options) end),
     {noreply, State};
+handle_call({dby_subscribe,
+                        [Fun, Acc, StartIdentifier, Options]}, From, State) ->
+    run(From,
+        fun() ->
+            dby_subscription:subscribe(Fun, Acc, StartIdentifier, Options)
+        end
+    ),
+    {noreply, State};
+handle_call({dby_unsubscribe, SubscriptionId}, From, State) ->
+    run(From,
+        fun() ->
+            dby_subscription:delete(SubscriptionId)
+        end
+    ),
+    {noreply, State};
 handle_call(Request, _From, _State) ->
     error({not_implemented, call, Request}).
 
