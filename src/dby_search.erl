@@ -10,7 +10,7 @@
     identifier :: dby_identifier(),
     from = undefined :: dby_identifier(),
     metadata :: jsonable(),
-    linkmetadata :: jsonable(),         % metadata on link to this identifier
+    path :: [{identifier, jsonable()}], % metadata on link to this identifier
     links :: [{dby_identifier(), jsonable()}], % remaining links to follow
     depth :: non_neg_integer(),
     loaded = false
@@ -48,7 +48,7 @@ start_depth_search(MaxDepth, TypeFn, DiscoveryFn, Fun, StartIdentifier, Acc0) ->
         #search{
             fn = Fun,
             identifier = StartIdentifier,
-            linkmetadata = undefined,
+            path = [],
             depth = 0
         }
     ],
@@ -87,7 +87,7 @@ depth_search(continue, MaxDepth, TypeFn, DiscoveryFn0,
             {Control, Fun1, Acc1} = apply_fun(Search1#search.fn,
                                               Identifier,
                                               Search1#search.metadata,
-                                              Search1#search.linkmetadata,
+                                              Search1#search.path,
                                               Acc0),
             % traverse the next link
             State1 = [Search1 | RestState],
@@ -96,7 +96,10 @@ depth_search(continue, MaxDepth, TypeFn, DiscoveryFn0,
     end.
 
 % process the next identifier in the search
-depth_search_next([Search0 = #search{links = Links, identifier = Identifier} |
+depth_search_next([Search0 = #search{links = Links,
+                                     identifier = Identifier,
+                                     metadata = Metadata,
+                                     path = Path} |
                                     SearchStack0], TypeFn, DiscoveryFn, Fun1) ->
     % get the next link to traverse
     case first_not_discovered(Identifier, Links, TypeFn, DiscoveryFn) of
@@ -113,7 +116,7 @@ depth_search_next([Search0 = #search{links = Links, identifier = Identifier} |
                     fn = Fun1,
                     identifier = NeighborIdentifier,
                     from = Identifier,
-                    linkmetadata = LinkMetadata
+                    path = [{Identifier, Metadata, LinkMetadata} | Path]
                 },
                 % remove the link just traversed from the list of links
                 % that still need to be examined
@@ -138,7 +141,7 @@ start_breadth_search(MaxDepth, TypeFn, DiscoveryFn,
     Search = #search{
         fn = Fun,
         identifier = StartIdentifier,
-        linkmetadata = undefined,
+        path = [],
         depth = 0
     },
     breadth_search(MaxDepth,
@@ -156,11 +159,11 @@ breadth_search(MaxDepth, Q0, TypeFn, Queued0, Acc0) ->
             Search1 = #search{
                 identifier = Identifier,
                 metadata = IdentifierMetadata,
-                linkmetadata = LinkMetadata,
+                path = Path,
                 fn = Fun
             } = read_identifier(Search),
             {Control, Fun1, Acc1} = apply_fun(Fun, Identifier,
-                                    IdentifierMetadata, LinkMetadata, Acc0),
+                                    IdentifierMetadata, Path, Acc0),
             {Q2, Queued1} = queue_links(Control, MaxDepth,
                                             Fun1, Search1, Q1, TypeFn, Queued0),
             breadth_search(MaxDepth, Q2, TypeFn, Queued1, Acc1)
@@ -175,7 +178,9 @@ queue_links(continue, MaxDepth, _, #search{depth = Depth}, Q, _, Queued)
                                                     when Depth >= MaxDepth ->
     {Q, Queued};
 queue_links(_, _, Fun, #search{identifier = Identifier,
+                               metadata = Metadata,
                                links = Links,
+                               path = Path,
                                depth = Depth}, Q0, TypeFn, Queued0) ->
     lists:foldl(
         fun({NeighborIdentifier, LinkMetadata}, {Q, Queued}) ->
@@ -188,7 +193,7 @@ queue_links(_, _, Fun, #search{identifier = Identifier,
                         fn = Fun,
                         identifier = NeighborIdentifier,
                         from = Identifier,
-                        linkmetadata = LinkMetadata,
+                        path = [{Identifier, Metadata, LinkMetadata} | Path],
                         depth = Depth + 1
                     },
                     {queue:in(Search, Q),
@@ -201,8 +206,8 @@ queue_links(_, _, Fun, #search{identifier = Identifier,
 %-------------------------------------------------------------------------------
 
 % apply the search function.  Normalize the return result.
-apply_fun(Fun, Identifier, IdentifierMetadata, LinkMetadata, Acc) ->
-    case Fun(Identifier, IdentifierMetadata, LinkMetadata, Acc) of
+apply_fun(Fun, Identifier, IdentifierMetadata, Path, Acc) ->
+    case Fun(Identifier, IdentifierMetadata, Path, Acc) of
         {Control, A} -> {Control, Fun, A};
         {Control, NewFun, A} -> {Control, NewFun, A}
     end.

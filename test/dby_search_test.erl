@@ -25,7 +25,8 @@ dby_search_test_() ->
         {"breadth skip", fun search10/0},
         {"no loop", fun search11/0},
         {"link loop", fun search12/0},
-        {"system", fun search13/0}
+        {"system", fun search13/0},
+        {"path", fun search14/0}
        ]
      }
     }.
@@ -236,18 +237,47 @@ search13() ->
         lists:sort(dby_search:search(search_fn2(continue), [], <<"A">>,
                                         [system, breadth, {max_depth, 1}]))).
 
+search14() ->
+    dby_test_utils:dby_read(
+                        dby_test_utils:dby_db(dby_test_utils:example2())),
+    ?assertEqual([
+        {<<"A">>, []},
+        {<<"B">>, [<<"A">>]},
+        {<<"C">>, [<<"A">>]},
+        {<<"D">>, [<<"B">>,<<"A">>]},
+        {<<"E">>, [<<"C">>,<<"A">>]}
+        ],
+        lists:sort(dby_search:search(search_fn3(), [], <<"A">>,
+                                        [depth, {max_depth, 2}]))),
+    ?assertEqual([
+        {<<"A">>, []},
+        {<<"B">>, [<<"A">>]},
+        {<<"C">>, [<<"A">>]},
+        {<<"D">>, [<<"B">>,<<"A">>]},
+        {<<"E">>, [<<"C">>,<<"A">>]}
+        ],
+        lists:sort(dby_search:search(search_fn3(), [], <<"A">>,
+                                        [breadth, {max_depth, 2}]))).
+
 % ------------------------------------------------------------------------------
 % helper functions
 % ------------------------------------------------------------------------------
 
 search_fn(Control) ->
-    fun(Identifier, Metadata, LinkMetadata, Acc0) ->
+    fun(Identifier, Metadata, [], Acc0) ->
+        {Control, [{Identifier, Metadata, undefined} | Acc0]};
+       (Identifier, Metadata, [{_, _, LinkMetadata} | _], Acc0) ->
         {Control, [{Identifier, Metadata, LinkMetadata} | Acc0]}
     end.
 
 search_fn2(Control) ->
-    fun(Identifier, _, _, Acc0) ->
-        {Control, [Identifier | Acc0]}
+    fun(Identifier, _, _, Acc) ->
+        {Control, [Identifier | Acc]}
+    end.
+
+search_fn3() ->
+    fun(Identifier, _, Path, Acc) ->
+        {continue, [{Identifier, [Id || {Id, _, _} <- Path]} | Acc]}
     end.
 
 search_fn_stop_on(StopOnIdentifier) ->
