@@ -1,3 +1,5 @@
+-define(PUBLISHER, <<"dobby">>).
+
 % options for all API functions
 -record(options, {
     publish = message :: publish_type(),
@@ -12,7 +14,7 @@
 % database representation of an identifier (vertex)
 -record(identifier, {
     id :: dby_identifier(),
-    metadata = null :: jsonable() | system_metadata(),
+    metadata = #{} :: all_metadata(),
     links = #{} :: #{dby_identifier() => jsonable() | system_metadata()}
 }).
 

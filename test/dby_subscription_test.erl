@@ -27,7 +27,7 @@ setup() ->
     ok = meck:expect(dby_db, delete, 1, ok),
     ok = meck:expect(dby_db, transaction, fun(Fn) -> Fn() end),
     ok = meck:new(dby_publish),
-    ok = meck:expect(dby_publish, publish, 2, ok),
+    ok = meck:expect(dby_publish, publish, 3, ok),
     % provide implementations for dby_test_mock used by dby_test_utils
     ok = meck:new(dby_test_mock),
     ok = meck:expect(dby_test_mock, search_fn, search_fn()),
@@ -50,7 +50,7 @@ subscription1() ->
     dby_subscription:subscribe(search_fn(), [], <<"A">>,
         [{max_depth, 1}, depth, persistent,
         {delta, delta_fn(delta)}, {delivery, delivery_fn(ok)}]),
-    [{_, {_, _, [Identifiers, Options]}, ok}] = meck:history(dby_publish),
+    {Identifiers, Options} = publish_call(),
     % expected options
     ?assertEqual([persistent], Options),
     % subscription identifier
@@ -85,7 +85,7 @@ subscription2() ->
     ok = dby_subscription:publish(<<"sub">>),
     ?assertNot(meck:called(dby_test_mock, delta_fn, '_')),
     ?assertNot(meck:called(dby_test_mock, delivery_fn, '_')),
-    [{_, {_, _, [Identifiers, _]}, ok}] = meck:history(dby_publish),
+    {Identifiers, _} = publish_call(),
     ?assertEqual([], Identifiers).
 
 subscription3() ->
@@ -96,7 +96,7 @@ subscription3() ->
     ok = dby_subscription:publish(<<"sub">>),
     ?assert(meck:called(dby_test_mock, delta_fn, '_')),
     ?assertNot(meck:called(dby_test_mock, delivery_fn, '_')),
-    [{_, {_, _, [Identifiers, _]}, ok}] = meck:history(dby_publish),
+    {Identifiers, _} = publish_call(),
     % subscription has updated last results
     Subscription = [{SubscriptionId, SubscriptionMetadata}] =
                                                     identifiers(Identifiers),
@@ -114,7 +114,7 @@ subscription4() ->
     ok = dby_subscription:publish(<<"sub">>),
     ?assert(meck:called(dby_test_mock, delta_fn, '_')),
     ?assertNot(meck:called(dby_test_mock, delivery_fn, '_')),
-    [{_, {_, publish, [Identifiers, _]}, ok}] = meck:history(dby_publish),
+    {Identifiers, _} = publish_call(),
     [{_, SubscriptionMetadata}] = identifiers(Identifiers),
     ?assertEqual(delete, SubscriptionMetadata).
 
@@ -128,7 +128,7 @@ subscription5() ->
     New = [<<"E">>,<<"C">>,<<"B">>,<<"A">>],
     ?assert(meck:called(dby_test_mock, delta_fn, [Old, New])),
     ?assert(meck:called(dby_test_mock, delivery_fn, [{Old, New}])),
-    [{_, {_, publish, [Identifiers, _]}, ok}] = meck:history(dby_publish),
+    {Identifiers, _} = publish_call(),
     % subscription has updated last results
     Subscription = [{SubscriptionId, SubscriptionMetadata}] =
                                                     identifiers(Identifiers),
@@ -147,13 +147,18 @@ subscription6() ->
     ok = dby_subscription:publish(<<"sub">>),
     ?assert(meck:called(dby_test_mock, delta_fn, '_')),
     ?assert(meck:called(dby_test_mock, delivery_fn, '_')),
-    [{_, {_, publish, [Identifiers, _]}, ok}] = meck:history(dby_publish),
+    {Identifiers, _} = publish_call(),
     [{_, SubscriptionMetadata}] = identifiers(Identifiers),
     ?assertEqual(delete, SubscriptionMetadata).
 
 % ------------------------------------------------------------------------------
 % helper functions
 % ------------------------------------------------------------------------------
+
+publish_call() ->
+    [{_, {_, publish, [_, Identifiers, Options]}, ok}] =
+                                                meck:history(dby_publish),
+    {Identifiers, Options}.
 
 search_fn() ->
     fun(Identifier, _, _, Acc0) ->

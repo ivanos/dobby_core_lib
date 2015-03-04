@@ -99,6 +99,10 @@ subscription1(Id, LastResult, Links) ->
         links = links1(Links)
     }.
 
+publisherid() -> <<"testpubid">>.
+
+timestamp() -> <<"2015-03-04T00:45:54Z">>.
+
 identifier1(Id, Links) ->
     #identifier{id = Id, metadata = id_metadata1(Id), links = links1(Links)}.
 
@@ -118,11 +122,24 @@ sub_metadata(LastResult) ->
         last_result => LastResult
     }.
 
+metadatainfo(Value) ->
+    #{
+        value => Value,
+        publisher_id => publisherid(),
+        timestamp => timestamp()
+    }.
+
+format_metadata(PL) ->
+    lists:foldl(
+        fun({Key, Value}, Acc) ->
+            maps:put(Key, metadatainfo(Value), Acc)
+        end, #{}, PL).
+
 id_metadata1(Id) ->
-    maps:put(<<"id">>, Id, #{<<"type">> => <<"identifier">>}).
+    format_metadata([{<<"id">>, Id}, {<<"type">>,<<"identifier">>}]).
 
 link_metadata1(Id) ->
-    maps:put(<<"id">>, Id, #{<<"type">> => <<"link">>}).
+    format_metadata([{<<"id">>, Id}, {<<"type">>,<<"link">>}]).
 
 link_submetadata1(Id) ->
     maps:put(<<"id">>, Id, #{system => subscription}).

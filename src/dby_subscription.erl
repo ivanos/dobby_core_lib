@@ -31,7 +31,8 @@ subscribe(Fun, Acc, StartIdentifier, Options) ->
     },
     Id = id(),
     Fn = fun() ->
-        dby_publish:publish(subscription(Id, Subscription), [persistent])
+        dby_publish:publish(?PUBLISHER,
+                            subscription(Id, Subscription), [persistent])
     end,
     case dby_db:transaction(Fn) of
         ok ->
@@ -43,7 +44,7 @@ subscribe(Fun, Acc, StartIdentifier, Options) ->
 -spec delete(identifier()) -> ok | {error, reason()}.
 delete(SubscriptionId) ->
     Fn = fun() ->
-        dby_publish:publish(SubscriptionId, delete, [persistent])
+        dby_publish:publish(?PUBLISHER, SubscriptionId, delete, [persistent])
     end,
     dby_db:transaction(Fn).
 
@@ -51,7 +52,8 @@ delete(SubscriptionId) ->
 publish(SubscriptionId) ->
     % XXX update subscriber links to reflect discovered identifiers
     Fn = fun() ->
-        dby_publish:publish(do_publish(SubscriptionId), [persistent])
+        dby_publish:publish(?PUBLISHER,
+                                    do_publish(SubscriptionId), [persistent])
     end,
     dby_db:transaction(Fn).
 

@@ -1,23 +1,21 @@
 -module(dby_publish).
 
--export([publish/2]).
+-export([publish/3]).
 
 -include_lib("dobby_clib/include/dobby.hrl").
 -include("dobby.hrl").
 
-% XXX system, user type
-
--spec publish([link() | dby_endpoint()], [publish_option()]) -> ok | reason().
-publish([], _) ->
+-spec publish(publisher_id(), [link() | dby_endpoint()], [publish_option()]) -> ok | {error, reason()}.
+publish(_, [], _) ->
     ok;
-publish(Data, Options) ->
+publish(PublisherId, Data, Options) ->
     % XXX need to catch badarg
     Publish = (dby_options:options(Options))#options.publish,
     Fns = lists:foldl(
         fun({Endpoint1, Endpoint2, LinkMetadata}, Acc) ->
-            [do_publish_link(Publish, Endpoint1, Endpoint2, LinkMetadata) | Acc];
+            [do_publish_link(PublisherId, Publish, Endpoint1, Endpoint2, LinkMetadata) | Acc];
            (Endpoint, Acc) ->
-            [do_publish_endpoint(Publish, Endpoint) | Acc]
+            [do_publish_endpoint(PublisherId, Publish, Endpoint) | Acc]
         end, [], Data),
     dby_db:transaction(joinfns(Fns)).
 
@@ -31,26 +29,26 @@ joinfns(Fns) ->
         end
     end.
 
-do_publish_endpoint(persistent, Endpoint) ->
+do_publish_endpoint(PublisherId, persistent, Endpoint) ->
     fun() ->
-        ok = persist_endpoint(Endpoint)
+        ok = persist_endpoint(PublisherId, Endpoint)
     end;
-do_publish_endpoint(message, Endpoint) ->
+do_publish_endpoint(PublisherId, message, Endpoint) ->
     fun() ->
-        ok = message_endpoint(Endpoint)
+        ok = message_endpoint(PublisherId, Endpoint)
     end.
 
-do_publish_link(persistent, Endpoint1, Endpoint2, LinkMetadata) ->
+do_publish_link(PublisherId, persistent, Endpoint1, Endpoint2, LinkMetadata) ->
     fun() ->
-        ok = persist_endpoint(Endpoint1, identifier(Endpoint2), LinkMetadata),
-        ok = persist_endpoint(Endpoint2, identifier(Endpoint1), LinkMetadata)
+        ok = persist_endpoint(PublisherId, Endpoint1, identifier(Endpoint2), LinkMetadata),
+        ok = persist_endpoint(PublisherId, Endpoint2, identifier(Endpoint1), LinkMetadata)
     end;
-do_publish_link(message, _, _, delete) ->
+do_publish_link(_, message, _, _, delete) ->
     throw({badarg, delete});
-do_publish_link(message, Endpoint1, Endpoint2, LinkMetadata) ->
+do_publish_link(PublisherId, message, Endpoint1, Endpoint2, LinkMetadata) ->
     fun() ->
-        ok = message_endpoint(Endpoint1, identifier(Endpoint2), LinkMetadata),
-        ok = message_endpoint(Endpoint2, identifier(Endpoint1), LinkMetadata)
+        ok = message_endpoint(PublisherId, Endpoint1, identifier(Endpoint2), LinkMetadata),
+        ok = message_endpoint(PublisherId, Endpoint2, identifier(Endpoint1), LinkMetadata)
     end.
 
 identifier(Identifier) when is_binary(Identifier) ->
@@ -60,20 +58,20 @@ identifier({Identifier, _}) when is_binary(Identifier) ->
 identifier(_) ->
     throw({badarg, identifier}).
 
-persist_endpoint(Identifier) when is_binary(Identifier) ->
-    persist_endpoint({Identifier, nochange});
-persist_endpoint({Identifier, Metadata}) ->
+persist_endpoint(PublisherId, Identifier) when is_binary(Identifier) ->
+    persist_endpoint(PublisherId, {Identifier, nochange});
+persist_endpoint(PublisherId, {Identifier, Metadata}) ->
     IdentifierR = dby_store:read_identifier(Identifier),
-    IdentifierR1 = update_identifier_metadata(IdentifierR, Metadata),
+    IdentifierR1 = update_identifier_metadata(PublisherId, IdentifierR, Metadata),
     ok = write_identifier(IdentifierR1).
 
-persist_endpoint(Identifier, NeighborIdentifier, LinkMetadata) 
+persist_endpoint(PublisherId, Identifier, NeighborIdentifier, LinkMetadata) 
                                             when is_binary(Identifier) ->
-    persist_endpoint({Identifier, nochange}, NeighborIdentifier, LinkMetadata);
-persist_endpoint({Identifier, Metadata}, NeighborIdentifier, LinkMetadata) ->
+    persist_endpoint(PublisherId, {Identifier, nochange}, NeighborIdentifier, LinkMetadata);
+persist_endpoint(PublisherId, {Identifier, Metadata}, NeighborIdentifier, LinkMetadata) ->
     IdentifierR = dby_store:read_identifier(Identifier),
-    IdentifierR1 = update_identifier_metadata(IdentifierR, Metadata),
-    IdentifierR2 = update_link(IdentifierR1, NeighborIdentifier, LinkMetadata),
+    IdentifierR1 = update_identifier_metadata(PublisherId, IdentifierR, Metadata),
+    IdentifierR2 = update_link(PublisherId, IdentifierR1, NeighborIdentifier, LinkMetadata),
     ok = write_identifier(IdentifierR2).
 
 write_identifier(IdentifierR = #identifier{id = Identifier, metadata = delete}) ->
@@ -97,43 +95,63 @@ remove_link(Identifier, NeighborIdentifier) ->
             ok
     end.
 
-update_identifier_metadata(IdentifierR = #identifier{}, nochange) ->
-    IdentifierR;
-update_identifier_metadata(IdentifierR = #identifier{}, delete) ->
-    IdentifierR#identifier{metadata = delete};
-update_identifier_metadata(
-    IdentifierR = #identifier{metadata = OldMetadata}, Fn) 
-                                                        when is_function(Fn) ->
-    IdentifierR#identifier{metadata = apply_in_xact(Fn, [OldMetadata])};
-update_identifier_metadata(IdentifierR = #identifier{}, NewMetadata) ->
-    IdentifierR#identifier{metadata = NewMetadata}.
+update_identifier_metadata(PublisherId,
+            IdentifierR = #identifier{metadata = OldMetadata}, NewMetadata) ->
+    IdentifierR#identifier{
+        metadata = merge_metadata(PublisherId, OldMetadata, NewMetadata)
+    }.
 
-update_link(IdentifierR = #identifier{links = Links}, NeighborIdentifier, delete) ->
+update_link(_, IdentifierR = #identifier{links = Links}, NeighborIdentifier, delete) ->
     IdentifierR#identifier{links = maps:without([NeighborIdentifier], Links)};
-update_link(IdentifierR = #identifier{links = Links}, NeighborIdentifier, LinkMetadata) ->
+update_link(PublisherId, IdentifierR = #identifier{links = Links}, NeighborIdentifier, LinkMetadata) ->
     OldLinkMetadata = read_link_metadata(Links, NeighborIdentifier),
     IdentifierR#identifier{links =
-                maps:put(NeighborIdentifier,
-                         update_link_metadata(OldLinkMetadata, LinkMetadata),
-                         Links)}.
+        maps:put(NeighborIdentifier,
+                 merge_metadata(PublisherId, OldLinkMetadata, LinkMetadata),
+                 Links)}.
 
 read_link_metadata(Links, NeighborIdentifier) ->
     case maps:find(NeighborIdentifier, Links) of
-        error -> null;
+        error -> #{};
         {ok, Metadata} -> Metadata
     end.
 
-update_link_metadata(OldMetadata, nochange) ->
+merge_metadata(_, OldMetadata, nochange) ->
     OldMetadata;
-update_link_metadata(OldMetadata, Fn) when is_function(Fn) ->
-    apply_in_xact(Fn, [OldMetadata]);
-update_link_metadata(_, NewMetadata) ->
-    NewMetadata.
+merge_metadata(_, _, delete) ->
+    delete;
+merge_metadata(PublisherId, OldMetadata, Fn) when is_function(Fn) ->
+    merge_metadata(PublisherId, OldMetadata,
+                    apply_in_xact(Fn, [metadata_proplist(OldMetadata)]));
+merge_metadata(PublisherId, OldMetadata, NewMetadata) ->
+    Timestamp = dby_time:timestamp(),
+    lists:foldl(
+        fun({Key, delete}, Acc) ->
+            maps:without([Key], Acc);
+           ({Key, {Value, PubId, TS}}, Acc) ->
+            maps:put(Key, #{
+                value => Value,
+                publisher_id => PubId,
+                timestamp => TS
+            }, Acc);
+           ({Key, Value}, Acc) ->
+            maps:put(Key, #{
+                value => Value,
+                publisher_id => PublisherId,
+                timestamp => Timestamp
+            }, Acc)
+        end, OldMetadata, NewMetadata).
 
-message_endpoint(_) ->
+metadata_proplist(Metadata = #{}) ->
+    maps:fold(
+        fun(Key, #{value := Value}, Acc) ->
+            [{Key, Value} | Acc]
+        end, [], Metadata).
+
+message_endpoint(_, _) ->
     error(not_imlemented).
 
-message_endpoint(_, _, _) ->
+message_endpoint(_, _, _, _) ->
     error(not_imlemented).
 
 apply_in_xact(Fn, Args) ->

@@ -46,7 +46,7 @@ each_setup() ->
 search1() ->
     % no links
     Identifier1 = <<"id1">>,
-    Metadata1 = #{<<"key1">> => <<"value1">>},
+    Metadata1 = dby_test_utils:metadatainfo([{<<"key1">>, <<"value1">>}]),
     IdentifierR1 = #identifier{id = Identifier1, metadata = Metadata1, links = #{}},
 
     % continue
@@ -117,7 +117,7 @@ search5() ->
 search6() ->
     % no links
     Identifier1 = <<"id1">>,
-    Metadata1 = #{<<"key1">> => <<"value1">>},
+    Metadata1 = dby_test_utils:metadatainfo([{<<"key1">>, <<"value1">>}]),
     IdentifierR1 = #identifier{id = Identifier1, metadata = Metadata1, links = #{}},
 
     % continue

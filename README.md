@@ -38,7 +38,13 @@ Identifiers:
 ```
 {
     "identifier": Id,
-    "metadata" : Metadata
+    "metadata" : {
+        "metakey": {
+            "value": "metavalue",
+            "pubisher_id": "publisher",
+            "timestamp": "2015-03-04T00:45:54Z"
+        }
+    }
 }
 ```
 
@@ -46,11 +52,17 @@ Links:
 ```
 {
     "link": [Id, Id],
-    "metadata": Metadata
+    "metadata" : {
+        "metakey": {
+            "value": "metavalue",
+            "pubisher_id": "publisher",
+            "timestamp": "2015-03-04T00:45:54Z"
+        }
+    }
 }
 ```
 
-Where an Id is a string, and metadata is one of:
+Where an Id is a string, keys are strings, and metadata values are one of:
 1. true
 2. false
 3. null
@@ -64,19 +76,31 @@ Example:
     {
         "identifier": "A",
         "metadata": {
-                        "metakey": "metavalue-for-A"
+                        "metakey": {
+                            "value": "metavalue-for-A",
+                            "pubisher_id": "publisher",
+                            "timestamp": "2015-03-04T00:45:54Z"
+                        }
                     }
     },
     {
         "identifier": "B",
         "metadata": {
-                        "metakey": "metavalue-for-B"
+                        "metakey": {
+                            "value": "metavalue-for-B",
+                            "pubisher_id": "publisher",
+                            "timestamp": "2015-03-04T00:45:54Z"
+                        }
                     }
     },
     {
         "link": ["A", "B"],
         "metadata": {
-                        "metakey": "metavalue-for-link"
+                        "metakey": {
+                            "value": "metavalue-for-link",
+                            "pubisher_id": "publisher",
+                            "timestamp": "2015-03-04T00:45:54Z"
+                        }
                     }
     }
 ]

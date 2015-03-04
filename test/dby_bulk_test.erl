@@ -4,7 +4,8 @@
 -include_lib("dobby_clib/include/dobby.hrl").
 -include("../src/dobby.hrl").
 
--define(TRANSACTION, transactionid).
+-define(PUBLISHER_ID, dby_test_utils:publisherid()).
+-define(TIMESTAMP, dby_test_utils:timestamp()).
 
 dby_publish_test_() ->
     {setup,
@@ -22,7 +23,7 @@ setup() ->
     ok = meck:new(dby_db),
     ok = meck:expect(dby_db, transaction, fun(Fn) -> Fn() end),
     ok = meck:new(dby_publish),
-    ok = meck:expect(dby_publish, publish, 2, ok).
+    ok = meck:expect(dby_publish, publish, 3, ok).
 
 cleanup(ok) ->
     ok = meck:unload(dby_db),
@@ -34,11 +35,12 @@ each_setup() ->
 
 bulk1() ->
     Metadata = #{
-        <<"true">> => true,
-        <<"false">> => false,
-        <<"null">> => null,
-        <<"integer">> => 1234,
-        <<"binary">> => <<"string">>
+        <<"true">> => metadatainfo(true),
+        <<"false">> => metadatainfo(false),
+        <<"null">> => metadatainfo(null),
+        <<"integer">> => metadatainfo(1234),
+        <<"binary">> => metadatainfo(<<"string">>),
+        <<"map">> => metadatainfo(#{<<"string">> => <<"string">>})
     },
     Items = [#identifier{id = <<"Z">>, metadata = Metadata} |
                                                 dby_test_utils:example1()],
@@ -51,6 +53,13 @@ bulk1() ->
 % helper functions
 % ------------------------------------------------------------------------------
 
+metadatainfo(Value) ->
+    #{
+        value => Value,
+        publisher_id => ?PUBLISHER_ID,
+        timestamp => ?TIMESTAMP
+    }.
+    
 dby_foldl(Items) ->
     Fn = fun(Fun, Acc, identifier) ->
         lists:foldl(Fun, Acc, Items)

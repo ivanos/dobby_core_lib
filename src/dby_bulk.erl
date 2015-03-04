@@ -42,11 +42,14 @@ import(json, Filename) ->
     {ok, Binary} = file:read_file(Filename),
     Decode = jiffy:decode(Binary),
     Links = links(Decode),
-    dby_publish:publish(Links, [persistent]).
+    PublisherId = <<"bulk">>,
+    dby_publish:publish(PublisherId, Links, [persistent]).
 
 % ==============================================================================
 % export helper functions
 % ==============================================================================
+
+% XXX encode and decode publisher id and timestamp
 
 json_link(#identifier{metadata = #{system := _}}) ->
     % do not save system identifiers
@@ -54,7 +57,7 @@ json_link(#identifier{metadata = #{system := _}}) ->
 json_link(#identifier{id = Identifier, metadata = Metadata, links = Links}) ->
     [
         {[{<<"identifier">>, Identifier},
-          {<<"metadata">>, json_metadata(Metadata)}]},
+          {<<"metadata">>, {json_metadatainfo(Metadata)}}]},
         maps:fold(
             fun(_, #{system := _}, Jsons) ->
                 % do not save links to system identifiers
@@ -62,11 +65,21 @@ json_link(#identifier{id = Identifier, metadata = Metadata, links = Links}) ->
                (NeighborIdentifier, LinkMetadata, Jsons) ->
                 [
                     {[{<<"link">>, [Identifier, NeighborIdentifier]},
-                      {<<"metadata">>, json_metadata(LinkMetadata)}]} |
+                      {<<"metadata">>, {json_metadatainfo(LinkMetadata)}}]} |
                     Jsons
                 ]
             end, [], Links)
     ].
+
+json_metadatainfo(Metadata) ->
+    maps:fold(
+        fun(Key, #{value := Value, publisher_id := PublisherId, timestamp := Timestamp}, Acc) ->
+            [ {Key, {[
+                {<<"value">>, json_metadata(Value)},
+                {<<"publisher_id">>, PublisherId},
+                {<<"timestamp">>, Timestamp}
+            ]}} | Acc]
+        end, [], Metadata).
 
 json_metadata(true) ->
     true;
@@ -105,9 +118,9 @@ links(Json) ->
 term({Json}) ->
     term(term_decode(Json));
 term(#term{type = identifier, identifier = Identifier, metadata = Metadata}) ->
-    {Identifier, term_metadata(Metadata)};
+    {Identifier, term_metadatainfo(Metadata)};
 term(#term{type = link, link = {Identifier1, Identifier2}, metadata = Metadata}) ->
-    {Identifier1, Identifier2, term_metadata(Metadata)}.
+    {Identifier1, Identifier2, term_metadatainfo(Metadata)}.
 
 term_decode(Json) ->
     term_decode(Json, #term{}).
@@ -121,6 +134,22 @@ term_decode([{<<"link">>, [Identifier1, Identifier2]} | Rest], Term) ->
                                 link = {Identifier1, Identifier2}});
 term_decode([{<<"identifier">>, Identifier} | Rest], Term) ->
     term_decode(Rest, Term#term{type = identifier, identifier = Identifier}).
+
+term_metadatainfo({Map}) ->
+    lists:foldl(
+        fun({Key, {Value}}, Acc) ->
+            [{Key, term_metadatainfo_value(Value)} | Acc]
+        end, [], Map).
+
+term_metadatainfo_value(Value) ->
+    lists:foldl(
+        fun({<<"value">>, V}, {_, P, T}) ->
+            {term_metadata(V), P, T};
+           ({<<"publisher_id">>, PublisherId}, {V, _, T}) ->
+            {V, PublisherId, T};
+           ({<<"timestamp">>, Timestamp}, {V, P, _}) ->
+            {V, P, Timestamp}
+        end, {v, p, t}, Value).
 
 term_metadata(true) ->
     true;

@@ -34,8 +34,8 @@ start_link() ->
 init([]) ->
     {ok, #?STATE{}}.
 
-handle_call({dby_publish, [Data, Options]}, From, State) ->
-    run(From, fun() -> dby_publish:publish(Data, Options) end),
+handle_call({dby_publish, [PublisherId, Data, Options]}, From, State) ->
+    run(From, fun() -> dby_publish:publish(PublisherId, Data, Options) end),
     {noreply, State};
 handle_call({dby_search, [Fun, Acc, StartIdentifier, Options]}, From, State) ->
     run(From,
