@@ -106,6 +106,36 @@ Example:
 ]
 ```
 
+Older style export file has this format:
+```
+[
+    {
+        "identifier": "A",
+        "metadata": {
+                        "metakey": "metavalue-for-A"
+                    }
+    },
+    {
+        "identifier": "B",
+        "metadata": {
+                        "metakey": "metavalue-for-B"
+                    }
+    },
+    {
+        "link": ["A", "B"],
+        "metadata": {
+                        "metakey": "metavalue-for-link"
+                    }
+    }
+]
+```
+
+The older style export files may be imported using:
+
+```
+dby_bulk:import(json0, Filename)
+```
+
 ## Origin of Name
 The Infoblox OpenFlow controller projects follow a fabric theme.
 The overall project is called LOOM.  Dobby fabric is a type of
