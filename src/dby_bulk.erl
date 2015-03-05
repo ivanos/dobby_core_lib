@@ -19,7 +19,7 @@
 
 % @doc
 % `export/2' writes the graph database to the file.  The only supported
-% format is json.
+% format is `json'.
 % @end
 -spec export(Format :: json, string()) -> ok | {error, term()}.
 export(json, Filename) ->
@@ -35,13 +35,16 @@ export(json, Filename) ->
 
 % @doc
 % `import/2' imports a file written `export/2' into the graph database.
-% The only supported format is json.
+% The only supported formats are `json' and `json0'.
+%
+% `json0' is a backward compatible importer.  Use this for the first
+% version of the export files.
 % @end
--spec import(Format :: json, string()) -> ok | {error, reason()}.
-import(json, Filename) ->
+-spec import(Format :: json | json0, string()) -> ok | {error, reason()}.
+import(Format, Filename) ->
     {ok, Binary} = file:read_file(Filename),
     Decode = jiffy:decode(Binary),
-    Links = links(Decode),
+    Links = links(Format, Decode),
     PublisherId = <<"bulk">>,
     dby_publish:publish(PublisherId, Links, [persistent]).
 
@@ -109,18 +112,18 @@ json_metadata(Data) when is_map(Data) ->
 % import helper functions
 % ==============================================================================
 
-links(Json) ->
+links(Format, Json) ->
     lists:reverse(lists:foldl(
         fun(Element, Data) ->
-            [term(Element) | Data]
+            [term(Format, Element) | Data]
         end, [], Json)).
 
-term({Json}) ->
-    term(term_decode(Json));
-term(#term{type = identifier, identifier = Identifier, metadata = Metadata}) ->
-    {Identifier, term_metadatainfo(Metadata)};
-term(#term{type = link, link = {Identifier1, Identifier2}, metadata = Metadata}) ->
-    {Identifier1, Identifier2, term_metadatainfo(Metadata)}.
+term(Format, {Json}) ->
+    term(Format, term_decode(Json));
+term(Format, #term{type = identifier, identifier = Identifier, metadata = Metadata}) ->
+    {Identifier, term_metadatainfo(Format, Metadata)};
+term(Format, #term{type = link, link = {Identifier1, Identifier2}, metadata = Metadata}) ->
+    {Identifier1, Identifier2, term_metadatainfo(Format, Metadata)}.
 
 term_decode(Json) ->
     term_decode(Json, #term{}).
@@ -135,7 +138,14 @@ term_decode([{<<"link">>, [Identifier1, Identifier2]} | Rest], Term) ->
 term_decode([{<<"identifier">>, Identifier} | Rest], Term) ->
     term_decode(Rest, Term#term{type = identifier, identifier = Identifier}).
 
-term_metadatainfo({Map}) ->
+term_metadatainfo(json0, null) ->
+    [];
+term_metadatainfo(json0, {Map}) ->
+    lists:foldl(
+        fun({Key, Value}, Acc) ->
+            [{Key, term_metadata(Value)} | Acc]
+        end, [], Map);
+term_metadatainfo(json, {Map}) ->
     lists:foldl(
         fun({Key, {Value}}, Acc) ->
             [{Key, term_metadatainfo_value(Value)} | Acc]
