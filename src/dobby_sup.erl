@@ -26,7 +26,7 @@ start_link() ->
 
 init([]) ->
     Children = [
+        ?CHILD(dby_transaction_sup, supervisor),
         ?CHILD(dby_listen, worker)
     ],
     {ok, { {one_for_one, 5, 10}, Children} }.
-

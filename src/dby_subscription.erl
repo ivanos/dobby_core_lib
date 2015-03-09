@@ -50,7 +50,6 @@ delete(SubscriptionId) ->
 
 -spec publish(identifier()) -> ok | {error, reason()}.
 publish(SubscriptionId) ->
-    % XXX update subscriber links to reflect discovered identifiers
     Fn = fun() ->
         dby_publish:publish(?PUBLISHER,
                                     do_publish(SubscriptionId), [persistent])

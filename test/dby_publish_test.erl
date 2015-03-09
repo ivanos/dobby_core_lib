@@ -25,7 +25,8 @@ dby_publish_test_() ->
         {"delete link", fun publish10/0},
         {"delete metadata", fun publish11/0},
         {"merge metadata", fun publish12/0},
-        {"set pubilsher, timestamp", fun publish13/0}
+        {"set pubilsher, timestamp", fun publish13/0},
+        {"calls dby_transaction publish", fun publish14/0}
        ]
      }
     }.
@@ -36,9 +37,15 @@ setup() ->
     ok = meck:expect(dby_db, delete, 1, ok),
     ok = meck:expect(dby_db, transaction, fun(Fn) -> Fn() end),
     ok = meck:new(dby_time),
-    ok = meck:expect(dby_time, timestamp, 0, dby_test_utils:timestamp()).
+    ok = meck:expect(dby_time, timestamp, 0, dby_test_utils:timestamp()),
+    ok = meck:new(dby_transaction),
+    ok = meck:expect(dby_transaction, new, 0, transaction_pid),
+    ok = meck:expect(dby_transaction, publish, 2, ok),
+    ok = meck:expect(dby_transaction, commit, 1, ok),
+    ok = meck:expect(dby_transaction, abort, 1, ok).
 
 cleanup(ok) ->
+    ok = meck:unload(dby_transaction),
     ok = meck:unload(dby_time),
     ok = meck:unload(dby_db).
 
@@ -55,7 +62,9 @@ publish1() ->
     dby_test_utils:dby_read([[],[]]),
     ok = dby_publish:publish(?PUBLISHER_ID, [{Identifier1, Identifier2, LinkMetadata}], [persistent]),
     ?assert(meck:called(dby_db, write, [IdentifierR1])),
-    ?assert(meck:called(dby_db, write, [IdentifierR2])).
+    ?assert(meck:called(dby_db, write, [IdentifierR2])),
+    ?assert(meck:called(dby_transaction, new, [])),
+    ?assert(meck:called(dby_transaction, commit, [transaction_pid])).
 
 publish2() ->
     % new link with identifier metadata
@@ -202,7 +211,8 @@ publish13() ->
     Identifier1Metadata = [{<<"key_id1">>, {<<"value_id1">>, <<"setpubid">>, <<"setts">>}}],
     IdentifierR1 = identifier(Identifier1, [], []),
     dby_test_utils:dby_read([[IdentifierR1]]),
-    dby_publish:publish(?PUBLISHER_ID, [{Identifier1, Identifier1Metadata}], [persistent]),
+    dby_publish:publish(?PUBLISHER_ID,
+                        [{Identifier1, Identifier1Metadata}], [persistent]),
     ?assert(meck:called(dby_db, write, [IdentifierR1#identifier{metadata =
         #{
             <<"key_id1">> => #{
@@ -213,6 +223,14 @@ publish13() ->
         }
     }])).
 
+publish14() ->
+    % with subscription, calls publish
+    dby_test_utils:dby_read(
+                        dby_test_utils:dby_db(dby_test_utils:example_sub1())),
+    dby_publish:publish(?PUBLISHER_ID,
+                [{<<"A">>, [{<<"newmdata">>, <<"data">>}]}], [persistent]),
+    ?assert(
+        meck:called(dby_transaction, publish, [transaction_pid, <<"sub">>])).
 
 % ------------------------------------------------------------------------------
 % helper functions
