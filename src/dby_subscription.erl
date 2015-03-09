@@ -1,12 +1,11 @@
 % Create and manage subscriptions.
-% Subscription processing is in dby_subscriber.
 
 % Subscriptions are stored in the graph as "system" identifiers.
 % The subscription is an identifier metadata about the subscription
 % in the identifier's metadata.  The identifiers that match the search
 % are linked to the subscription.  On a publish, follow the links
 % from the affected identifiers to the subscriptions.  Build a list of
-% subscriptions to process and pass this to dby_subscribe.  dby_subscribe
+% subscriptions to process and pass this to publish/1.  publish/1
 % reruns the search and updates the links if the shape the sesarch
 % result changes.
 
