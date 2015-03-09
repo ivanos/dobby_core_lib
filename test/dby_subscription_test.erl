@@ -54,7 +54,7 @@ subscription1() ->
     % expected options
     ?assertEqual([persistent], Options),
     % subscription identifier
-    Subscription = [{SubscriptionId, SubscriptionMetadata}] =
+    Subscription = [{SubscriptionId, SubscriptionPL}] =
                                                     identifiers(Identifiers),
     #{
         system := SystemV,
@@ -62,7 +62,7 @@ subscription1() ->
         last_result := LastResultV,
         options := OptionsV,
         start_identifier := StartIdentifierV
-    } = SubscriptionMetadata,
+    } = maps:from_list(SubscriptionPL),
     ?assertEqual(subscription, SystemV),
     ?assertEqual([<<"A">>,<<"B">>,<<"C">>,<<"E">>], lists:sort(LastResultV)),
     ?assertEqual(<<"A">>, StartIdentifierV),
@@ -73,7 +73,7 @@ subscription1() ->
     % subscription linked to each of the identifiers in the result
     Links = Identifiers -- Subscription,
     {Neighbors, Subs} = lists:unzip([{Neighbor, SId} ||
-                {SId, Neighbor, #{system := subscription}} <- Links]),
+                {SId, Neighbor, [{system,  subscription}]} <- Links]),
     ?assertEqual(lists:sort(LastResultV), lists:sort(Neighbors)),
     ?assert(lists:all(fun(S) -> S == SubscriptionId end, Subs)).
 
@@ -98,13 +98,13 @@ subscription3() ->
     ?assertNot(meck:called(dby_test_mock, delivery_fn, '_')),
     {Identifiers, _} = publish_call(),
     % subscription has updated last results
-    Subscription = [{SubscriptionId, SubscriptionMetadata}] =
+    Subscription = [{SubscriptionId, SubscriptionMetadataPL}] =
                                                     identifiers(Identifiers),
-    #{last_result := LastResultV} = SubscriptionMetadata,
+    #{last_result := LastResultV} = maps:from_list(SubscriptionMetadataPL),
     ?assertEqual([<<"A">>,<<"B">>,<<"C">>,<<"E">>], lists:sort(LastResultV)),
     % link added to identifier "E"
     [Link] = Identifiers -- Subscription,
-    ?assertEqual({SubscriptionId, <<"E">>, #{system => subscription}}, Link).
+    ?assertEqual({SubscriptionId, <<"E">>, [{system, subscription}]}, Link).
 
 subscription4() ->
     % delta in graph, delta fun returns stop
@@ -130,13 +130,13 @@ subscription5() ->
     ?assert(meck:called(dby_test_mock, delivery_fn, [{Old, New}])),
     {Identifiers, _} = publish_call(),
     % subscription has updated last results
-    Subscription = [{SubscriptionId, SubscriptionMetadata}] =
+    Subscription = [{SubscriptionId, SubscriptionMetadataPL}] =
                                                     identifiers(Identifiers),
-    #{last_result := LastResultV} = SubscriptionMetadata,
+    #{last_result := LastResultV} = maps:from_list(SubscriptionMetadataPL),
     ?assertEqual([<<"A">>,<<"B">>,<<"C">>,<<"E">>], lists:sort(LastResultV)),
     % link added to identifier "E"
     [Link] = Identifiers -- Subscription,
-    ?assertEqual({SubscriptionId, <<"E">>, #{system => subscription}}, Link).
+    ?assertEqual({SubscriptionId, <<"E">>, [{system, subscription}]}, Link).
 
 subscription6() ->
     % delta in graph, delivery fun returns stop

@@ -56,6 +56,14 @@ handle_call({dby_unsubscribe, SubscriptionId}, From, State) ->
         end
     ),
     {noreply, State};
+handle_call({install_code, {Module, Binary, Filename}}, From, State) ->
+    run(From,
+        fun() ->
+            R = code:load_binary(Module, Filename, Binary),
+            code:soft_purge(Module),
+            R
+        end),
+    {noreply, State};
 handle_call(Request, _From, _State) ->
     error({not_implemented, call, Request}).
 

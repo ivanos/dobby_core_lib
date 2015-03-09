@@ -145,6 +145,9 @@ merge_metadata(PublisherId, OldMetadata, NewMetadata) ->
                 publisher_id => PubId,
                 timestamp => TS
             }, Acc);
+           ({Key, Value}, Acc) when is_atom(Key) ->
+            % system keys do not need publisher id or timestamp
+            maps:put(Key, Value, Acc);
            ({Key, Value}, Acc) ->
             maps:put(Key, #{
                 value => Value,

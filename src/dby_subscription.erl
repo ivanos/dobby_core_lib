@@ -105,7 +105,7 @@ update_discovered(SubscriptionId, LastDiscovered, Discovered) ->
         % added links
         lists:foldl(
             fun(Identifier, Acc) ->
-                [{SubscriptionId, Identifier, #{system => subscription}} | Acc]
+                [{SubscriptionId, Identifier, [{system, subscription}]} | Acc]
             end, [], Discovered --  LastDiscovered),
         % removed links
         lists:foldl(
@@ -116,8 +116,10 @@ update_discovered(SubscriptionId, LastDiscovered, Discovered) ->
 
 publish_id_change(Id, Id) ->
     [];
+publish_id_change(_, #identifier{id = Id, metadata = delete}) ->
+    [{Id, delete}];
 publish_id_change(_, #identifier{id = Id, metadata = Metadata}) ->
-    [{Id, Metadata}].
+    [{Id, maps:to_list(Metadata)}].
 
 set_last_result(Id = #identifier{metadata = Subscription}, LastResult) ->
     Id#identifier{metadata = Subscription#{last_result => LastResult}}.
@@ -131,10 +133,10 @@ subscription(Id, Subscription0 = #{system := subscription}) ->
     % return list of identifiers to publish
     [
         % subscription
-        {Id, Subscription0#{last_result => SearchResult}} |
+        {Id, maps:to_list(Subscription0#{last_result => SearchResult})} |
         lists:map(
             fun(Identifier) ->
-                {Id, Identifier, #{system => subscription}}
+                {Id, Identifier, [{system, subscription}]}
             end, Discovered)
     ].
 
