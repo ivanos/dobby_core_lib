@@ -10,10 +10,10 @@
 -record(search, {
     fn :: fun(),
     identifier :: dby_identifier(),
-    from = undefined :: dby_identifier(),
+    from = undefined :: dby_identifier() | undefined,
     metadata :: jsonable(),
-    path :: [{identifier, jsonable()}], % metadata on link to this identifier
-    links :: [{dby_identifier(), jsonable()}], % remaining links to follow
+    path :: [{dby_identifier(), metadata_info(), metadata_info()}], % metadata on link to this identifier
+    links :: [{dby_identifier(), metadata_info()}], % remaining links to follow
     depth :: non_neg_integer(),
     loaded = false
 }).
@@ -22,11 +22,11 @@
 read_fn() ->
     fun db_read/1.
 
--spec search(search_fun(), dby_identifier(), term(), search_options()) -> term() | {error, reason()}.
+-spec search(search_fun(), dby_identifier(), term(), [search_options()]) -> term() | {error, reason()}.
 search(Fun, Acc, StartIdentifier, Options) ->
     search(read_fn(), Fun, Acc, StartIdentifier, Options).
 
--spec search(db_read_fun(), search_fun(), dby_identifier(), term(), search_options()) -> term() | {error, reason()}.
+-spec search(db_read_fun(), search_fun(), dby_identifier(), term(), [search_options()]) -> term() | {error, reason()}.
 search(ReadFn, Fun, Acc, StartIdentifier, Options) ->
     % XXX need to catch badarg
     OptionsR = dby_options:options(Options),
@@ -236,7 +236,7 @@ read_identifier(ReadFn, Search = #search{identifier = Identifier}) ->
             % XXX bad link; cleanup source identifier
             % for now, return an empty identifier record
             Search#search{
-                    metadata = null,
+                    metadata = #{},
                     links = [],
                     loaded = true
             }

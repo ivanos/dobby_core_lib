@@ -14,8 +14,8 @@
 % database representation of an identifier (vertex)
 -record(identifier, {
     id :: dby_identifier(),
-    metadata = #{} :: all_metadata(),
-    links = #{} :: #{dby_identifier() => jsonable() | system_metadata()}
+    metadata = #{} :: all_metadata() | delete | #{binary() => delete},
+    links = #{} :: #{dby_identifier() => all_metadata()}
 }).
 
 % metadata of a subscription identifier

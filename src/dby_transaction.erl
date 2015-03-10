@@ -47,9 +47,9 @@ publish(Pid, IdentifierR) ->
     gen_server:call(Pid, {publish, IdentifierR}).
 
 % Mark identifer for delete
--spec delete(pid(), #identifier{}) -> ok.
-delete(Pid, IdentifierR) ->
-    gen_server:call(Pid, {delete, IdentifierR}).
+-spec delete(pid(), dby_identifier()) -> ok.
+delete(Pid, Identifier) ->
+    gen_server:call(Pid, {delete, Identifier}).
 
 -spec commit(pid(), publish_type()) -> ok.
 commit(Pid, Publish) ->
