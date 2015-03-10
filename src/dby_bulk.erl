@@ -52,8 +52,6 @@ import(Format, Filename) ->
 % export helper functions
 % ==============================================================================
 
-% XXX encode and decode publisher id and timestamp
-
 json_link(#identifier{metadata = #{system := _}}) ->
     % do not save system identifiers
     [];
