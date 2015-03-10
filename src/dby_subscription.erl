@@ -12,7 +12,7 @@
 -module(dby_subscription).
 
 -export([subscribe/4,
-         publish/2,
+         publish/3,
          delete/1]).
 
 -include_lib("dobby_clib/include/dobby.hrl").
@@ -31,7 +31,9 @@ subscribe(Fun, Acc, StartIdentifier, Options) ->
     Id = id(),
     Fn = fun() ->
         dby_publish:publish(?PUBLISHER,
-                            subscription(Id, Subscription), [persistent])
+                                subscription(dby_search:read_fn(),
+                                                    Id, Subscription),
+                                                        [system, persistent])
     end,
     case dby_db:transaction(Fn) of
         ok ->
@@ -47,20 +49,25 @@ delete(SubscriptionId) ->
     end,
     dby_db:transaction(Fn).
 
--spec publish(identifier(), publish_type()) -> ok | {error, reason()}.
-publish(SubscriptionId, persistent) ->
+-spec publish(identifier(), publish_type(), db_read_fun()) -> ok | {error, reason()}.
+publish(SubscriptionId, persistent, ReadFn) ->
     Fn = fun() ->
-        dby_publish:publish(?PUBLISHER, do_publish(SubscriptionId),
+        dby_publish:publish(?PUBLISHER, do_publish(SubscriptionId, ReadFn),
                                                         [system, persistent])
     end,
-    dby_db:transaction(Fn).
+    dby_db:transaction(Fn);
+publish(SubscriptionId, message, ReadFn) ->
+    % for message publishes, do not persist subscription changes in the graph
+    do_publish(SubscriptionId, ReadFn),
+    % but ... need to persist subscription deletes.
+    ok.
     
 
 % =============================================================================
 % Internal functions
 % =============================================================================
 
-do_publish(SubscriptionId) ->
+do_publish(SubscriptionId, ReadFn) ->
     % read identifier
     Id0 = dby_store:read_identifier(SubscriptionId),
     #identifier{metadata = Subscription0, links = Links} = Id0,
@@ -68,7 +75,7 @@ do_publish(SubscriptionId) ->
     #{last_result := LastResult,
       options := #options{delta_fun = DeltaFn,
                           delivery_fun = DeliveryFn}} = Subscription0,
-    {Discovered, SearchResult} = search(Subscription0),
+    {Discovered, SearchResult} = search(ReadFn, Subscription0),
     Id1 = case SearchResult =:= LastResult of
         true ->
             % subscription search returned the same result set
@@ -128,9 +135,9 @@ set_last_result(Id = #identifier{metadata = Subscription}, LastResult) ->
 set_delete(Id = #identifier{}) ->
     Id#identifier{metadata = delete}.
 
-subscription(Id, Subscription0 = #{system := subscription}) ->
+subscription(ReadFn, Id, Subscription0 = #{system := subscription}) ->
     % run search and identify identifiers touched by search
-    {Discovered, SearchResult} = search(Subscription0),
+    {Discovered, SearchResult} = search(ReadFn, Subscription0),
     % return list of identifiers to publish
     [
         % subscription
@@ -142,12 +149,12 @@ subscription(Id, Subscription0 = #{system := subscription}) ->
     ].
 
 % returns list of identifiers traversed by the search and search result
-search(#{
+search(ReadFn, #{
         search_fun := Fun,
         acc0 := Acc,
         start_identifier := StartIdentifier,
         options := Options}) ->
-    case dby_search:search(search_fun(Fun), {[], Acc}, StartIdentifier,
+    case dby_search:search(ReadFn, search_fun(Fun), {[], Acc}, StartIdentifier,
                                                 search_options(Options)) of
         {error, Reason} ->
             throw(Reason);

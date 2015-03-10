@@ -1,7 +1,8 @@
 -module(dby_search).
 
 -export([search/4,
-         search/5]).
+         search/5,
+         read_fn/0]).
 
 -include_lib("dobby_clib/include/dobby.hrl").
 -include("dobby.hrl").
@@ -17,9 +18,13 @@
     loaded = false
 }).
 
+-spec read_fn() -> db_read_fun().
+read_fn() ->
+    fun db_read/1.
+
 -spec search(search_fun(), dby_identifier(), term(), search_options()) -> term() | {error, reason()}.
 search(Fun, Acc, StartIdentifier, Options) ->
-    search(fun db_read/1, Fun, Acc, StartIdentifier, Options).
+    search(read_fn(), Fun, Acc, StartIdentifier, Options).
 
 -spec search(db_read_fun(), search_fun(), dby_identifier(), term(), search_options()) -> term() | {error, reason()}.
 search(ReadFn, Fun, Acc, StartIdentifier, Options) ->

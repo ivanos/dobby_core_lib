@@ -19,7 +19,7 @@ dby_subscription_test_() ->
 
 setup() ->
     ok = meck:new(dby_subscription),
-    ok = meck:expect(dby_subscription, publish, 2, ok).
+    ok = meck:expect(dby_subscription, publish, 3, ok).
 
 cleanup(ok) ->
     ok = meck:unload(dby_subscription).
@@ -35,9 +35,9 @@ transaction1() ->
     ok = dby_transaction:publish(T, identifier1(<<"C">>, [<<"sub3">>])),
     ok = dby_transaction:commit(T, persistent),
     wait(T),
-    ?assertEqual(1, meck:num_calls(dby_subscription, publish, [<<"sub1">>, '_'])),
-    ?assertEqual(1, meck:num_calls(dby_subscription, publish, [<<"sub2">>, '_'])),
-    ?assertEqual(1, meck:num_calls(dby_subscription, publish, [<<"sub3">>, '_'])).
+    ?assertEqual(1, meck:num_calls(dby_subscription, publish, [<<"sub1">>, persistent, '_'])),
+    ?assertEqual(1, meck:num_calls(dby_subscription, publish, [<<"sub2">>, persistent, '_'])),
+    ?assertEqual(1, meck:num_calls(dby_subscription, publish, [<<"sub3">>, persistent, '_'])).
 
 transaction2() ->
     % abort transaction
@@ -75,4 +75,4 @@ tr() ->
     dbg:tracer(),
     dbg:p(all, c),
     % dbg:tpl(dby_subscription, [{'_', [], [{return_trace}]}]).
-    dbg:tpl(dby_subscription, []).
+    dbg:tpl(dby_transaction, []).

@@ -67,7 +67,8 @@ handle_call({publish, IdentifierR}, _From,
             identifiers = dict:store(Identifier, IdentifierR, Identifiers)},
     {reply, ok, State1};
 handle_call({commit, Publish}, _From, State0 = #?STATE{identifiers = Identifiers}) ->
-    notify_subscriptions(Identifiers, publish_readfn(Identifiers, Publish)),
+    notify_subscriptions(Identifiers, Publish,
+                                        publish_readfn(Identifiers, Publish)),
     {stop, normal, ok, State0};
 handle_call(abort, _From, State0) ->
     {stop, normal, ok, State0};
@@ -104,7 +105,7 @@ publish_readfn(Identifiers, message) ->
         end
     end.
 
-notify_subscriptions(Identifiers, ReadFn) ->
+notify_subscriptions(Identifiers, Publish, ReadFn) ->
     % make list of subscription ids
     Subscriptions = dict:fold(
         fun(_, #identifier{links = Links}, Acc) ->
@@ -112,7 +113,7 @@ notify_subscriptions(Identifiers, ReadFn) ->
         end, sets:new(), Identifiers),
     lists:foreach(
         fun(SubscriptionId) ->
-            run(fun() -> dby_subscription:publish(SubscriptionId, ReadFn) end)
+            run(fun() -> dby_subscription:publish(SubscriptionId, Publish, ReadFn) end)
         end, sets:to_list(Subscriptions)).
 
 subscription_ids(Links, Acc0) ->
