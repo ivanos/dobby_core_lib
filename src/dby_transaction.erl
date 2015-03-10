@@ -19,6 +19,7 @@
 -export([start_link/0,
          new/0,
          publish/2,
+         delete/2,
          commit/2,
          abort/1]).
 
@@ -45,6 +46,11 @@ new() ->
 publish(Pid, IdentifierR) ->
     gen_server:call(Pid, {publish, IdentifierR}).
 
+% Mark identifer for delete
+-spec delete(pid(), #identifier{}) -> ok.
+delete(Pid, IdentifierR) ->
+    gen_server:call(Pid, {delete, IdentifierR}).
+
 -spec commit(pid(), publish_type()) -> ok.
 commit(Pid, Publish) ->
     gen_server:call(Pid, {commit, Publish}).
@@ -65,6 +71,16 @@ handle_call({publish, IdentifierR}, _From,
     Identifier = IdentifierR#identifier.id,
     State1 = State0#?STATE{
             identifiers = dict:store(Identifier, IdentifierR, Identifiers)},
+    {reply, ok, State1};
+handle_call({delete, Identifier}, _From,
+                            State0 = #?STATE{identifiers = Identifiers}) ->
+    % Put the deleted identifier into the state, but no special handling
+    % is needed later.  If the identifier is deleted, there should
+    % not be any links to it so it will never be read.
+    % XXX what if the deleted identifier is the starting identifier?
+    State1 = State0#?STATE{
+            identifiers = dict:store(Identifier, #identifier{id = Identifier},
+                                                                Identifiers)},
     {reply, ok, State1};
 handle_call({commit, Publish}, _From, State0 = #?STATE{identifiers = Identifiers}) ->
     notify_subscriptions(Identifiers, Publish,
@@ -100,7 +116,7 @@ publish_readfn(Identifiers, message) ->
         case dict:find(Identifier, Identifiers) of
             error ->
                 dby_db:read(Key);
-            IdentifierR ->
+            {ok, IdentifierR} ->
                 [IdentifierR]
         end
     end.

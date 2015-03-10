@@ -50,24 +50,19 @@ delete(SubscriptionId) ->
     dby_db:transaction(Fn).
 
 -spec publish(identifier(), publish_type(), db_read_fun()) -> ok | {error, reason()}.
-publish(SubscriptionId, persistent, ReadFn) ->
+publish(SubscriptionId, Type, ReadFn) ->
     Fn = fun() ->
-        dby_publish:publish(?PUBLISHER, do_publish(SubscriptionId, ReadFn),
-                                                        [system, persistent])
+        dby_publish:publish(?PUBLISHER, do_publish(Type,
+                                SubscriptionId, ReadFn), [system, persistent])
     end,
-    dby_db:transaction(Fn);
-publish(SubscriptionId, message, ReadFn) ->
-    % for message publishes, do not persist subscription changes in the graph
-    do_publish(SubscriptionId, ReadFn),
-    % but ... need to persist subscription deletes.
-    ok.
-    
+    dby_db:transaction(Fn).
 
 % =============================================================================
 % Internal functions
 % =============================================================================
 
-do_publish(SubscriptionId, ReadFn) ->
+do_publish(Type, SubscriptionId, ReadFn) ->
+    % persistent publish - update the subscription's last results
     % read identifier
     Id0 = dby_store:read_identifier(SubscriptionId),
     #identifier{metadata = Subscription0, links = Links} = Id0,
@@ -90,13 +85,13 @@ do_publish(SubscriptionId, ReadFn) ->
                 nodelta ->
                     % no delta, update the last result in the metadata
                     % nothing to deliver
-                    set_last_result(Id0, SearchResult);
+                    set_last_result(Type, Id0, SearchResult);
                 {delta, Delta} ->
                     % deliver the delta
                     case DeliveryFn(Delta) of
                         ok ->
                             % set the last result in the metadata
-                            set_last_result(Id0, SearchResult);
+                            set_last_result(Type, Id0, SearchResult);
                         stop ->
                             % delete subscription
                             set_delete(Id0)
@@ -104,11 +99,15 @@ do_publish(SubscriptionId, ReadFn) ->
             end
     end,
     lists:flatten([
-        update_discovered(SubscriptionId, maps:keys(Links), Discovered),
+        update_discovered(Type, SubscriptionId, maps:keys(Links), Discovered),
         publish_id_change(Id0, Id1)
     ]).
 
-update_discovered(SubscriptionId, LastDiscovered, Discovered) ->
+% update the links to the discovered identifiers.  Only do this for
+% persistent publishes.
+update_discovered(message, _, _, _) ->
+    [];
+update_discovered(persistent, SubscriptionId, LastDiscovered, Discovered) ->
     [
         % added links
         lists:foldl(
@@ -129,7 +128,12 @@ publish_id_change(_, #identifier{id = Id, metadata = delete}) ->
 publish_id_change(_, #identifier{id = Id, metadata = Metadata}) ->
     [{Id, maps:to_list(Metadata)}].
 
-set_last_result(Id = #identifier{metadata = Subscription}, LastResult) ->
+% update the last result of the search.  Only do this for persistent
+% publishes.  Message publishes always compute delta against the last
+% persistent update.
+set_last_result(message, Identifier, _) ->
+    Identifier;
+set_last_result(persistent, Id = #identifier{metadata = Subscription}, LastResult) ->
     Id#identifier{metadata = Subscription#{last_result => LastResult}}.
 
 set_delete(Id = #identifier{}) ->

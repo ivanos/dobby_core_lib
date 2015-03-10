@@ -86,6 +86,7 @@ persist_endpoint(Transaction, PublisherId, {Identifier, Metadata}, NeighborIdent
 write_identifier(Transaction, IdentifierR = #identifier{id = Identifier, metadata = delete}) ->
     % delete record
     ok = dby_db:delete({identifier, Identifier}),
+    ok = transaction_delete(Transaction, Identifier),
     % delete links to this identifer
     lists:foreach(
         fun(NeighborIdentifier) ->
@@ -184,6 +185,11 @@ transaction_publish(no_transaction, _) ->
     ok;
 transaction_publish(Transaction, IdentifierR) ->
     dby_transaction:publish(Transaction, IdentifierR).
+
+transaction_delete(no_transaction, _) ->
+    ok;
+transaction_delete(Transaction, IdentifierR) ->
+    dby_transaction:delete(Transaction, IdentifierR).
 
 transaction_commit(no_transaction, _) ->
     ok;

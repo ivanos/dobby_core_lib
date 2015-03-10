@@ -42,6 +42,7 @@ setup() ->
     ok = meck:new(dby_transaction),
     ok = meck:expect(dby_transaction, new, 0, transaction_pid),
     ok = meck:expect(dby_transaction, publish, 2, ok),
+    ok = meck:expect(dby_transaction, delete, 2, ok),
     ok = meck:expect(dby_transaction, commit, 2, ok),
     ok = meck:expect(dby_transaction, abort, 1, ok).
 
@@ -156,7 +157,8 @@ publish8() ->
     IdentifierR1 = identifier(Identifier1, Identifier1Metadata, []),
     dby_test_utils:dby_read([[IdentifierR1]]),
     dby_publish:publish(?PUBLISHER_ID, [{Identifier1, delete}], [persistent]),
-    ?assert(meck:called(dby_db, delete, [{identifier, Identifier1}])).
+    ?assert(meck:called(dby_db, delete, [{identifier, Identifier1}])),
+    ?assert(meck:called(dby_transaction, delete, [transaction_pid, Identifier1])).
 
 publish9() ->
     % delete identifier that is in graph and has links
@@ -170,6 +172,7 @@ publish9() ->
     dby_test_utils:dby_read([[IdentifierR1],[IdentifierR2]]),
     dby_publish:publish(?PUBLISHER_ID, [{Identifier1, delete}], [persistent]),
     ?assert(meck:called(dby_db, delete, [{identifier, Identifier1}])),
+    ?assert(meck:called(dby_transaction, delete, [transaction_pid, Identifier1])),
     ?assert(meck:called(dby_db, write, [IdentifierR2#identifier{links = #{}}])).
 
 publish10() ->

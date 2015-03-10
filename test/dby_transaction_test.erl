@@ -12,7 +12,8 @@ dby_subscription_test_() ->
        fun each_setup/0,
        [
         {"commit", fun transaction1/0},
-        {"abort", fun transaction2/0}
+        {"abort", fun transaction2/0},
+        {"readfn", fun transaction3/0}
        ]
      }
     }.
@@ -35,6 +36,7 @@ transaction1() ->
     ok = dby_transaction:publish(T, identifier1(<<"C">>, [<<"sub3">>])),
     ok = dby_transaction:commit(T, persistent),
     wait(T),
+    timer:sleep(10),
     ?assertEqual(1, meck:num_calls(dby_subscription, publish, [<<"sub1">>, persistent, '_'])),
     ?assertEqual(1, meck:num_calls(dby_subscription, publish, [<<"sub2">>, persistent, '_'])),
     ?assertEqual(1, meck:num_calls(dby_subscription, publish, [<<"sub3">>, persistent, '_'])).
@@ -49,10 +51,26 @@ transaction2() ->
     wait(T),
     ?assertEqual(0, meck:num_calls(dby_subscription, publish, '_')).
 
+transaction3() ->
+    T = new_transaction(),
+    ok = dby_transaction:publish(T, identifier1(<<"A">>, [<<"sub1">>])),
+    ok = dby_transaction:publish(T, identifier1(<<"B">>, [<<"sub1">>])),
+    ok = dby_transaction:delete(T, <<"C">>),
+    ok = dby_transaction:commit(T, message),
+    wait(T),
+    timer:sleep(10),
+    ReadFn = read_fn(meck:history(dby_subscription)),
+    ?assertEqual([#identifier{id = <<"C">>, metadata = #{}, links = #{}}], ReadFn({identifier, <<"C">>})),
+    ?assertMatch([#identifier{id = <<"B">>}], ReadFn({identifier, <<"B">>})),
+    ?assertMatch([#identifier{id = <<"A">>}], ReadFn({identifier, <<"A">>})).
 
 % ------------------------------------------------------------------------------
 % helper functions
 % ------------------------------------------------------------------------------
+
+read_fn(History) ->
+    [{_, {dby_subscription, publish, [_, _, ReadFn]}, _}] = History,
+    ReadFn.
 
 new_transaction() ->
     {ok, Pid} = dby_transaction:start_link(),
