@@ -1,6 +1,7 @@
 -module(dby_search).
 
--export([search/4]).
+-export([search/4,
+         search/5]).
 
 -include_lib("dobby_clib/include/dobby.hrl").
 -include("dobby.hrl").
@@ -18,6 +19,10 @@
 
 -spec search(search_fun(), dby_identifier(), term(), search_options()) -> term() | {error, reason()}.
 search(Fun, Acc, StartIdentifier, Options) ->
+    search(fun db_read/1, Fun, Acc, StartIdentifier, Options).
+
+-spec search(db_read_fun(), search_fun(), dby_identifier(), term(), search_options()) -> term() | {error, reason()}.
+search(ReadFn, Fun, Acc, StartIdentifier, Options) ->
     % XXX need to catch badarg
     OptionsR = dby_options:options(Options),
     Traversal = OptionsR#options.traversal,
@@ -26,23 +31,23 @@ search(Fun, Acc, StartIdentifier, Options) ->
     DiscoveryFn = discoveryfn(OptionsR#options.loop),
     Fn =
         fun() ->
-            do_search(Traversal, TypeFn, DiscoveryFn, MaxDepth,
+            do_search(Traversal, ReadFn, TypeFn, DiscoveryFn, MaxDepth,
                                                 Fun, StartIdentifier, Acc)
         end,
     dby_db:transaction(Fn).
 
-do_search(depth, TypeFn, DiscoveryFn, MaxDepth, Fun, StartIdentifier, Acc) ->
-    start_depth_search(MaxDepth, TypeFn, DiscoveryFn,
+do_search(depth, ReadFn, TypeFn, DiscoveryFn, MaxDepth, Fun, StartIdentifier, Acc) ->
+    start_depth_search(ReadFn, MaxDepth, TypeFn, DiscoveryFn,
                                                 Fun, StartIdentifier, Acc);
-do_search(breadth, TypeFn, DiscoveryFn, MaxDepth, Fun, StartIdentifier, Acc) ->
-    start_breadth_search(MaxDepth, TypeFn, DiscoveryFn,
+do_search(breadth, ReadFn, TypeFn, DiscoveryFn, MaxDepth, Fun, StartIdentifier, Acc) ->
+    start_breadth_search(ReadFn, MaxDepth, TypeFn, DiscoveryFn,
                                                 Fun, StartIdentifier, Acc).
 
 %-------------------------------------------------------------------------------
 % depth search
 %-------------------------------------------------------------------------------
 
-start_depth_search(MaxDepth, TypeFn, DiscoveryFn, Fun, StartIdentifier, Acc0) ->
+start_depth_search(ReadFn, MaxDepth, TypeFn, DiscoveryFn, Fun, StartIdentifier, Acc0) ->
     % seed the search with the starting identifier
     SearchStack = [
         #search{
@@ -52,24 +57,24 @@ start_depth_search(MaxDepth, TypeFn, DiscoveryFn, Fun, StartIdentifier, Acc0) ->
             depth = 0
         }
     ],
-    depth_search(continue, MaxDepth, TypeFn, DiscoveryFn, SearchStack, Acc0).
+    depth_search(continue, ReadFn, MaxDepth, TypeFn, DiscoveryFn, SearchStack, Acc0).
 
-depth_search(_, _, _, _, [], Acc) ->
+depth_search(_, _, _, _, _, [], Acc) ->
     % we're done - ran out of links to follow
     Acc;
-depth_search(stop, _, _, _, _, Acc) ->
+depth_search(stop, _, _, _, _, _, Acc) ->
     % search function says stop
     Acc;
-depth_search(skip, MaxDepth, TypeFn, DiscoveryFn, [_ | Rest], Acc) ->
+depth_search(skip, ReadFn, MaxDepth, TypeFn, DiscoveryFn, [_ | Rest], Acc) ->
     % do not traverse any links from the parent's identifier.
     % depth_search_next pushes the next identifier onto the stack 
     % before checking Control.
-    depth_search(continue, MaxDepth, TypeFn, DiscoveryFn, Rest, Acc);
-depth_search(continue, MaxDepth, TypeFn, DiscoveryFn,
+    depth_search(continue, ReadFn, MaxDepth, TypeFn, DiscoveryFn, Rest, Acc);
+depth_search(continue, ReadFn, MaxDepth, TypeFn, DiscoveryFn,
                 [#search{depth = Depth} | Rest], Acc) when Depth > MaxDepth ->
     % depth exceed maximum search depth - skip this identifier
-    depth_search(continue, MaxDepth, TypeFn, DiscoveryFn, Rest, Acc);
-depth_search(continue, MaxDepth, TypeFn, DiscoveryFn0,
+    depth_search(continue, ReadFn, MaxDepth, TypeFn, DiscoveryFn, Rest, Acc);
+depth_search(continue, ReadFn, MaxDepth, TypeFn, DiscoveryFn0,
         State0 = [Search0 = #search{identifier =  Identifier, from = From} |
                                                         RestState], Acc0) ->
     % discovered?
@@ -78,11 +83,11 @@ depth_search(continue, MaxDepth, TypeFn, DiscoveryFn0,
             % traverse the next link
             State1 = depth_search_next(State0, TypeFn, DiscoveryFn0,
                                                         Search0#search.fn),
-            depth_search(continue, MaxDepth, TypeFn, DiscoveryFn0,
+            depth_search(continue, ReadFn, MaxDepth, TypeFn, DiscoveryFn0,
                                                         State1, Acc0);
         false ->
             % apply the search function
-            Search1 = read_identifier(Search0),
+            Search1 = read_identifier(ReadFn, Search0),
             DiscoveryFn1 = DiscoveryFn0(add, Identifier, From),
             {Control, Fun1, Acc1} = apply_fun(Search1#search.fn,
                                               Identifier,
@@ -92,7 +97,7 @@ depth_search(continue, MaxDepth, TypeFn, DiscoveryFn0,
             % traverse the next link
             State1 = [Search1 | RestState],
             State2 = depth_search_next(State1, TypeFn, DiscoveryFn1, Fun1),
-            depth_search(Control, MaxDepth, TypeFn, DiscoveryFn1, State2, Acc1)
+            depth_search(Control, ReadFn, MaxDepth, TypeFn, DiscoveryFn1, State2, Acc1)
     end.
 
 % process the next identifier in the search
@@ -136,7 +141,7 @@ first_not_discovered(Identifier, Links, TypeFn, DiscoveryFn) ->
 % breadth search
 %-------------------------------------------------------------------------------
 
-start_breadth_search(MaxDepth, TypeFn, DiscoveryFn,
+start_breadth_search(ReadFn, MaxDepth, TypeFn, DiscoveryFn,
                                             Fun, StartIdentifier, Acc0) ->
     Search = #search{
         fn = Fun,
@@ -144,13 +149,13 @@ start_breadth_search(MaxDepth, TypeFn, DiscoveryFn,
         path = [],
         depth = 0
     },
-    breadth_search(MaxDepth,
+    breadth_search(ReadFn, MaxDepth,
         queue:in(Search, queue:new()),
         TypeFn,
         DiscoveryFn(add, StartIdentifier, undefined),
         Acc0).
 
-breadth_search(MaxDepth, Q0, TypeFn, Queued0, Acc0) ->
+breadth_search(ReadFn, MaxDepth, Q0, TypeFn, Queued0, Acc0) ->
     case queue:len(Q0) of
         0 ->
             Acc0;
@@ -161,12 +166,12 @@ breadth_search(MaxDepth, Q0, TypeFn, Queued0, Acc0) ->
                 metadata = IdentifierMetadata,
                 path = Path,
                 fn = Fun
-            } = read_identifier(Search),
+            } = read_identifier(ReadFn, Search),
             {Control, Fun1, Acc1} = apply_fun(Fun, Identifier,
                                     IdentifierMetadata, Path, Acc0),
             {Q2, Queued1} = queue_links(Control, MaxDepth,
                                             Fun1, Search1, Q1, TypeFn, Queued0),
-            breadth_search(MaxDepth, Q2, TypeFn, Queued1, Acc1)
+            breadth_search(ReadFn, MaxDepth, Q2, TypeFn, Queued1, Acc1)
     end.
 
 queue_links(stop, _, _, _, _, _, Queued) ->
@@ -212,10 +217,10 @@ apply_fun(Fun, Identifier, IdentifierMetadata, Path, Acc) ->
         {Control, NewFun, A} -> {Control, NewFun, A}
     end.
 
-read_identifier(Search = #search{loaded = true}) ->
+read_identifier(_, Search = #search{loaded = true}) ->
     Search;
-read_identifier(Search = #search{identifier = Identifier}) ->
-    case dby_db:read({identifier, Identifier}) of
+read_identifier(ReadFn, Search = #search{identifier = Identifier}) ->
+    case ReadFn({identifier, Identifier}) of
         [R] ->
             Search#search{
                     metadata = R#identifier.metadata,
@@ -231,6 +236,9 @@ read_identifier(Search = #search{identifier = Identifier}) ->
                     loaded = true
             }
     end.
+
+db_read(Key) ->
+    dby_db:read(Key).
 
 % Generate the function for loop detection.  The function takes
 % three arguments: operation (add, is), the identifier, and

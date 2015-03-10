@@ -32,3 +32,6 @@
 -type subscriber() :: #{
     type => subscriber
 }.
+
+% function that reads identifiers from the database
+-type db_read_fun() :: fun(({identifier, dby_identifier()}) -> [#identifier{}]).

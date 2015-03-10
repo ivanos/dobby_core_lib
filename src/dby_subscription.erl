@@ -12,7 +12,7 @@
 -module(dby_subscription).
 
 -export([subscribe/4,
-         publish/1,
+         publish/2,
          delete/1]).
 
 -include_lib("dobby_clib/include/dobby.hrl").
@@ -47,13 +47,14 @@ delete(SubscriptionId) ->
     end,
     dby_db:transaction(Fn).
 
--spec publish(identifier()) -> ok | {error, reason()}.
-publish(SubscriptionId) ->
+-spec publish(identifier(), publish_type()) -> ok | {error, reason()}.
+publish(SubscriptionId, persistent) ->
     Fn = fun() ->
-        dby_publish:publish(?PUBLISHER,
-                                    do_publish(SubscriptionId), [persistent])
+        dby_publish:publish(?PUBLISHER, do_publish(SubscriptionId),
+                                                        [system, persistent])
     end,
     dby_db:transaction(Fn).
+    
 
 % =============================================================================
 % Internal functions

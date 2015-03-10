@@ -19,7 +19,7 @@ dby_subscription_test_() ->
 
 setup() ->
     ok = meck:new(dby_subscription),
-    ok = meck:expect(dby_subscription, publish, 1, ok).
+    ok = meck:expect(dby_subscription, publish, 2, ok).
 
 cleanup(ok) ->
     ok = meck:unload(dby_subscription).
@@ -30,20 +30,21 @@ each_setup() ->
 transaction1() ->
     % commit transaction
     T = new_transaction(),
-    ok = dby_transaction:publish(T, <<"sub1">>),
-    ok = dby_transaction:publish(T, <<"sub1">>),
-    ok = dby_transaction:publish(T, <<"sub2">>),
-    ok = dby_transaction:commit(T),
+    ok = dby_transaction:publish(T, identifier1(<<"A">>, [<<"sub1">>])),
+    ok = dby_transaction:publish(T, identifier1(<<"B">>, [<<"sub1">>, <<"sub2">>])),
+    ok = dby_transaction:publish(T, identifier1(<<"C">>, [<<"sub3">>])),
+    ok = dby_transaction:commit(T, persistent),
     wait(T),
-    ?assertEqual(1, meck:num_calls(dby_subscription, publish, [<<"sub1">>])),
-    ?assertEqual(1, meck:num_calls(dby_subscription, publish, [<<"sub2">>])).
+    ?assertEqual(1, meck:num_calls(dby_subscription, publish, [<<"sub1">>, '_'])),
+    ?assertEqual(1, meck:num_calls(dby_subscription, publish, [<<"sub2">>, '_'])),
+    ?assertEqual(1, meck:num_calls(dby_subscription, publish, [<<"sub3">>, '_'])).
 
 transaction2() ->
     % abort transaction
     T = new_transaction(),
-    ok = dby_transaction:publish(T, <<"sub1">>),
-    ok = dby_transaction:publish(T, <<"sub1">>),
-    ok = dby_transaction:publish(T, <<"sub2">>),
+    ok = dby_transaction:publish(T, identifier1(<<"A">>, [<<"sub1">>])),
+    ok = dby_transaction:publish(T, identifier1(<<"B">>, [<<"sub1">>, <<"sub2">>])),
+    ok = dby_transaction:publish(T, identifier1(<<"C">>, [<<"sub3">>])),
     ok = dby_transaction:abort(T),
     wait(T),
     ?assertEqual(0, meck:num_calls(dby_subscription, publish, '_')).
@@ -65,6 +66,9 @@ wait(Pid) ->
         false ->
             ok
     end.
+
+identifier1(Id, Subscriptions) ->
+    dby_test_utils:identifier1(Id, [{sub, Sub} || Sub <- Subscriptions]).
 
 tr() ->
     dbg:start(),

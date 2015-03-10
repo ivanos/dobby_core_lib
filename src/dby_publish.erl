@@ -11,7 +11,8 @@ publish(_, [], _) ->
 publish(PublisherId, Data, Options) ->
     % XXX need to catch badarg
     Publish = (dby_options:options(Options))#options.publish,
-    Transaction = dby_transaction:new(),
+    Type = (dby_options:options(Options))#options.type,
+    Transaction = transaction_new(Type),
     Fns = lists:foldl(
         fun({Endpoint1, Endpoint2, LinkMetadata}, Acc) ->
             [do_publish_link(Transaction, PublisherId, Publish, Endpoint1, Endpoint2, LinkMetadata) | Acc];
@@ -20,10 +21,10 @@ publish(PublisherId, Data, Options) ->
         end, [], Data),
     case dby_db:transaction(joinfns(Fns)) of
         ok ->
-            dby_transaction:commit(Transaction),
+            transaction_commit(Transaction, Publish),
             ok;
         {error, Reason} ->
-            dby_transaction:abort(Transaction),
+            transaction_abort(Transaction),
             {error, Reason}
     end.
 
@@ -92,7 +93,7 @@ write_identifier(Transaction, IdentifierR = #identifier{id = Identifier, metadat
         end, maps:keys(IdentifierR#identifier.links));
 write_identifier(Transaction, IdentifierR) ->
     % XXX write only if different
-    ok = notify_subscriptions(Transaction, IdentifierR),
+    ok = transaction_publish(Transaction, IdentifierR),
     ok = dby_db:write(IdentifierR).
 
 % remove the link from neighbor identifier
@@ -100,7 +101,7 @@ remove_link(Transaction, Identifier, NeighborIdentifier) ->
     case dby_db:read({identifier, NeighborIdentifier}) of
         [R0 = #identifier{links = Links}] ->
             R1 = R0#identifier{links = maps:without([Identifier], Links)},
-            ok = notify_subscriptions(Transaction, R1),
+            ok = transaction_publish(Transaction, R1),
             ok = dby_db:write(R1);
         _ ->
             ok
@@ -174,11 +175,22 @@ apply_in_xact(Fn, Args) ->
         {'EXIT', Reason} -> mnesia:abort({user_error, Reason})
     end.
 
-notify_subscriptions(Transaction, #identifier{links = Links}) ->
-    lists:foreach(
-        fun({SubscriptionId, #{system := subscription}}) ->
-            dby_transaction:publish(Transaction, SubscriptionId);
-           (_) ->
-            ok
-        end, maps:to_list(Links)),
-    ok.
+transaction_new(user) ->
+    dby_transaction:new();
+transaction_new(system) ->
+    no_transaction.
+
+transaction_publish(no_transaction, _) ->
+    ok;
+transaction_publish(Transaction, IdentifierR) ->
+    dby_transaction:publish(Transaction, IdentifierR).
+
+transaction_commit(no_transaction, _) ->
+    ok;
+transaction_commit(Transaction, Publish) ->
+    dby_transaction:commit(Transaction, Publish).
+
+transaction_abort(no_transaction) ->
+    ok;
+transaction_abort(Transaction) ->
+    dby_transaction:abort(Transaction).

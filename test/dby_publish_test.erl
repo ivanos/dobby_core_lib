@@ -26,7 +26,8 @@ dby_publish_test_() ->
         {"delete metadata", fun publish11/0},
         {"merge metadata", fun publish12/0},
         {"set pubilsher, timestamp", fun publish13/0},
-        {"calls dby_transaction publish", fun publish14/0}
+        {"calls dby_transaction publish", fun publish14/0},
+        {"system publish does no dby_transaction", fun publish15/0}
        ]
      }
     }.
@@ -41,7 +42,7 @@ setup() ->
     ok = meck:new(dby_transaction),
     ok = meck:expect(dby_transaction, new, 0, transaction_pid),
     ok = meck:expect(dby_transaction, publish, 2, ok),
-    ok = meck:expect(dby_transaction, commit, 1, ok),
+    ok = meck:expect(dby_transaction, commit, 2, ok),
     ok = meck:expect(dby_transaction, abort, 1, ok).
 
 cleanup(ok) ->
@@ -50,6 +51,7 @@ cleanup(ok) ->
     ok = meck:unload(dby_db).
 
 each_setup() ->
+    ok = meck:reset(dby_transaction),
     ok = meck:reset(dby_db).
 
 publish1() ->
@@ -64,7 +66,7 @@ publish1() ->
     ?assert(meck:called(dby_db, write, [IdentifierR1])),
     ?assert(meck:called(dby_db, write, [IdentifierR2])),
     ?assert(meck:called(dby_transaction, new, [])),
-    ?assert(meck:called(dby_transaction, commit, [transaction_pid])).
+    ?assert(meck:called(dby_transaction, commit, [transaction_pid, persistent])).
 
 publish2() ->
     % new link with identifier metadata
@@ -229,8 +231,18 @@ publish14() ->
                         dby_test_utils:dby_db(dby_test_utils:example_sub1())),
     dby_publish:publish(?PUBLISHER_ID,
                 [{<<"A">>, [{<<"newmdata">>, <<"data">>}]}], [persistent]),
-    ?assert(
-        meck:called(dby_transaction, publish, [transaction_pid, <<"sub">>])).
+    ?assert(meck:called(dby_transaction, publish,
+                [transaction_pid,
+                 #identifier{id = <<"A">>, metadata = '_', links = '_'}])).
+
+publish15() ->
+    % system publish does not fire subscriptions (no dby_transaction)
+    dby_test_utils:dby_read(
+                        dby_test_utils:dby_db(dby_test_utils:example_sub1())),
+    dby_publish:publish(?PUBLISHER_ID,
+                [{<<"A">>, [{<<"newmdata">>, <<"data">>}]}],
+                                                        [system, persistent]),
+    ?assertEqual(0, meck:num_calls(dby_transaction, publish, '_')).
 
 % ------------------------------------------------------------------------------
 % helper functions

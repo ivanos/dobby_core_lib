@@ -9,7 +9,7 @@
 -define(STATE, dby_transaction_state).
 
 -record(?STATE, {
-    subscriptions = sets:new()
+    identifiers = dict:new()
 }).
 
 %% ------------------------------------------------------------------
@@ -19,7 +19,7 @@
 -export([start_link/0,
          new/0,
          publish/2,
-         commit/1,
+         commit/2,
          abort/1]).
 
 %% ------------------------------------------------------------------
@@ -40,15 +40,14 @@ start_link() ->
 new() ->
     dby_transaction_sup:new_transaction().
 
-% Add a subscription to the list of subscriptions touched during
-% the transaction.
--spec publish(pid(), subscription_id()) -> ok.
-publish(Pid, SubscriptionId) ->
-    gen_server:call(Pid, {add_subscription, SubscriptionId}).
+% Add an identifier to the transaction.
+-spec publish(pid(), #identifier{}) -> ok.
+publish(Pid, IdentifierR) ->
+    gen_server:call(Pid, {publish, IdentifierR}).
 
--spec commit(pid()) -> ok.
-commit(Pid) ->
-    gen_server:call(Pid, commit).
+-spec commit(pid(), publish_type()) -> ok.
+commit(Pid, Publish) ->
+    gen_server:call(Pid, {commit, Publish}).
 
 -spec abort(pid()) -> ok.
 abort(Pid) ->
@@ -61,16 +60,14 @@ abort(Pid) ->
 init([]) ->
     {ok, #?STATE{}}.
 
-handle_call({add_subscription, SubscriptionId}, _From,
-                            State0 = #?STATE{subscriptions = Subscriptions}) ->
+handle_call({publish, IdentifierR}, _From,
+                            State0 = #?STATE{identifiers = Identifiers}) ->
+    Identifier = IdentifierR#identifier.id,
     State1 = State0#?STATE{
-            subscriptions = sets:add_element(SubscriptionId, Subscriptions)},
+            identifiers = dict:store(Identifier, IdentifierR, Identifiers)},
     {reply, ok, State1};
-handle_call(commit, _From, State0 = #?STATE{subscriptions = Subscriptions}) ->
-    lists:foreach(
-        fun(SubscriptionId) ->
-            run(fun() -> dby_subscription:publish(SubscriptionId) end)
-        end, sets:to_list(Subscriptions)),
+handle_call({commit, Publish}, _From, State0 = #?STATE{identifiers = Identifiers}) ->
+    notify_subscriptions(Identifiers, publish_readfn(Identifiers, Publish)),
     {stop, normal, ok, State0};
 handle_call(abort, _From, State0) ->
     {stop, normal, ok, State0};
@@ -92,6 +89,37 @@ code_change(_OldVsn, State, _Extra) ->
 %% ------------------------------------------------------------------
 %% Internal Function Definitions
 %% ------------------------------------------------------------------
+
+publish_readfn(_, persistent) ->
+    fun(Key) ->
+        dby_db:read(Key)
+    end;
+publish_readfn(Identifiers, message) ->
+    fun (Key = {identifier, Identifier}) ->
+        case dict:find(Identifier, Identifiers) of
+            error ->
+                dby_db:read(Key);
+            IdentifierR ->
+                [IdentifierR]
+        end
+    end.
+
+notify_subscriptions(Identifiers, ReadFn) ->
+    % make list of subscription ids
+    Subscriptions = dict:fold(
+        fun(_, #identifier{links = Links}, Acc) ->
+            subscription_ids(Links, Acc)
+        end, sets:new(), Identifiers),
+    lists:foreach(
+        fun(SubscriptionId) ->
+            run(fun() -> dby_subscription:publish(SubscriptionId, ReadFn) end)
+        end, sets:to_list(Subscriptions)).
+
+subscription_ids(Links, Acc0) ->
+    maps:fold(
+        fun(SubscriptionId, #{system := subscription}, Acc) ->
+            sets:add_element(SubscriptionId, Acc)
+        end, Acc0, Links).
 
 run(Job) ->
     Fn = fun() ->

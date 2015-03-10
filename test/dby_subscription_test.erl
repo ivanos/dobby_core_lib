@@ -82,7 +82,7 @@ subscription2() ->
     ok = meck:expect(dby_test_mock, delta_fn, delta_fn(nodelta)),
     dby_test_utils:dby_read(
                         dby_test_utils:dby_db(dby_test_utils:example_sub1())),
-    ok = dby_subscription:publish(<<"sub">>),
+    ok = dby_subscription:publish(<<"sub">>, persistent),
     ?assertNot(meck:called(dby_test_mock, delta_fn, '_')),
     ?assertNot(meck:called(dby_test_mock, delivery_fn, '_')),
     {Identifiers, _} = publish_call(),
@@ -93,7 +93,7 @@ subscription3() ->
     ok = meck:expect(dby_test_mock, delta_fn, delta_fn(nodelta)),
     dby_test_utils:dby_read(
                         dby_test_utils:dby_db(dby_test_utils:example_sub2())),
-    ok = dby_subscription:publish(<<"sub">>),
+    ok = dby_subscription:publish(<<"sub">>, persistent),
     ?assert(meck:called(dby_test_mock, delta_fn, '_')),
     ?assertNot(meck:called(dby_test_mock, delivery_fn, '_')),
     {Identifiers, _} = publish_call(),
@@ -111,7 +111,7 @@ subscription4() ->
     ok = meck:expect(dby_test_mock, delta_fn, delta_fn(stop)),
     dby_test_utils:dby_read(
                         dby_test_utils:dby_db(dby_test_utils:example_sub2())),
-    ok = dby_subscription:publish(<<"sub">>),
+    ok = dby_subscription:publish(<<"sub">>, persistent),
     ?assert(meck:called(dby_test_mock, delta_fn, '_')),
     ?assertNot(meck:called(dby_test_mock, delivery_fn, '_')),
     {Identifiers, _} = publish_call(),
@@ -123,7 +123,7 @@ subscription5() ->
     ok = meck:expect(dby_test_mock, delta_fn, delta_fn(delta)),
     dby_test_utils:dby_read(
                         dby_test_utils:dby_db(dby_test_utils:example_sub2())),
-    ok = dby_subscription:publish(<<"sub">>),
+    ok = dby_subscription:publish(<<"sub">>, persistent),
     Old = [<<"C">>,<<"B">>,<<"A">>],
     New = [<<"E">>,<<"C">>,<<"B">>,<<"A">>],
     ?assert(meck:called(dby_test_mock, delta_fn, [Old, New])),
@@ -144,7 +144,7 @@ subscription6() ->
     ok = meck:expect(dby_test_mock, delivery_fn, delivery_fn(stop)),
     dby_test_utils:dby_read(
                         dby_test_utils:dby_db(dby_test_utils:example_sub2())),
-    ok = dby_subscription:publish(<<"sub">>),
+    ok = dby_subscription:publish(<<"sub">>, persistent),
     ?assert(meck:called(dby_test_mock, delta_fn, '_')),
     ?assert(meck:called(dby_test_mock, delivery_fn, '_')),
     {Identifiers, _} = publish_call(),
