@@ -26,7 +26,8 @@ dby_search_test_() ->
         {"no loop", fun search11/0},
         {"link loop", fun search12/0},
         {"system", fun search13/0},
-        {"path", fun search14/0}
+        {"path", fun search14/0},
+        {"depth loop, link check", fun search15/0}
        ]
      }
     }.
@@ -258,6 +259,15 @@ search14() ->
         ],
         lists:sort(dby_search:search(search_fn3(), [], <<"A">>,
                                         [breadth, {max_depth, 2}]))).
+
+search15() ->
+    % link loop detection
+    dby_test_utils:dby_read(dby_test_utils:dby_db(dby_test_utils:example4())),
+    ?assertEqual([<<"A">>,<<"A">>,<<"B">>,<<"C">>,<<"D">>,<<"E">>],
+                    lists:sort(
+                        dby_search:search(search_fn2(continue),
+                            [], <<"A">>,
+                            [depth, {max_depth, 10}, {loop, link}]))).
 
 % ------------------------------------------------------------------------------
 % helper functions
