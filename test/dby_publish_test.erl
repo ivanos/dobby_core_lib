@@ -27,7 +27,8 @@ dby_publish_test_() ->
         {"merge metadata", fun publish12/0},
         {"set pubilsher, timestamp", fun publish13/0},
         {"calls dby_transaction publish", fun publish14/0},
-        {"system publish does no dby_transaction", fun publish15/0}
+        {"system publish does no dby_transaction", fun publish15/0},
+        {"message publish does no dby_db", fun publish16/0}
        ]
      }
     }.
@@ -247,6 +248,16 @@ publish15() ->
                                                         [system, persistent]),
     ?assertEqual(0, meck:num_calls(dby_transaction, publish, '_')).
 
+publish16() ->
+    % message publish does not persist changes
+    dby_test_utils:dby_read(
+                        dby_test_utils:dby_db(dby_test_utils:example_sub1())),
+    dby_publish:publish(?PUBLISHER_ID,
+                [{<<"A">>, [{<<"newmdata">>, <<"data">>}]}],
+                                                        [message]),
+    ?assertEqual(1, meck:num_calls(dby_transaction, publish, '_')),
+    ?assertEqual(0, meck:num_calls(dby_db, write, '_')).
+
 % ------------------------------------------------------------------------------
 % helper functions
 % ------------------------------------------------------------------------------
@@ -264,3 +275,10 @@ identifier(Id, Metadata, Links) ->
                     fun({Neighbor, LinkMetadata}, Acc) ->
                         maps:put(Neighbor, metadatainfo(LinkMetadata), Acc)
                     end, #{}, Links)}.
+
+tr() ->
+    dbg:start(),
+    dbg:tracer(),
+    dbg:p(all, c),
+    % dbg:tpl(dby_search, [{'_', [], [{return_trace}]}]).
+    dbg:tpl(dby_publish, []).

@@ -12,52 +12,27 @@ publish(PublisherId, Data, Options) ->
     % XXX need to catch badarg
     Publish = (dby_options:options(Options))#options.publish,
     Type = (dby_options:options(Options))#options.type,
-    Transaction = transaction_new(Type),
+    Transaction = transaction_new(Type, Publish),
     Fns = lists:foldl(
         fun({Endpoint1, Endpoint2, LinkMetadata}, Acc) ->
-            [do_publish_link(Transaction, PublisherId, Publish, Endpoint1, Endpoint2, LinkMetadata) | Acc];
+            [publish_link(Transaction,
+                    PublisherId, Endpoint1, Endpoint2, LinkMetadata) | Acc];
            (Endpoint, Acc) ->
-            [do_publish_endpoint(Transaction, PublisherId, Publish, Endpoint) | Acc]
+            [publish_endpoint(Transaction, PublisherId, Endpoint) | Acc]
         end, [], Data),
-    case dby_db:transaction(joinfns(Fns)) of
-        ok ->
-            transaction_commit(Transaction, Publish),
-            ok;
-        {error, Reason} ->
-            transaction_abort(Transaction),
-            {error, Reason}
+    transaction_commit(Transaction, Publish, Fns).
+
+publish_endpoint(Transaction, PublisherId, Endpoint) ->
+    fun() ->
+        ok = do_endpoint(Transaction, PublisherId, Endpoint)
     end.
 
-joinfns(Fns) ->
+publish_link(Transaction, PublisherId, Endpoint1, Endpoint2, LinkMetadata) ->
     fun() ->
-        try
-            lists:foreach(fun(Fn) -> Fn() end, Fns)
-        catch
-            throw:Reason ->
-                dby_db:abort(Reason)
-        end
-    end.
-
-do_publish_endpoint(Transaction, PublisherId, persistent, Endpoint) ->
-    fun() ->
-        ok = persist_endpoint(Transaction, PublisherId, Endpoint)
-    end;
-do_publish_endpoint(Transaction, PublisherId, message, Endpoint) ->
-    fun() ->
-        ok = message_endpoint(Transaction, PublisherId, Endpoint)
-    end.
-
-do_publish_link(Transaction, PublisherId, persistent, Endpoint1, Endpoint2, LinkMetadata) ->
-    fun() ->
-        ok = persist_endpoint(Transaction, PublisherId, Endpoint1, identifier(Endpoint2), LinkMetadata),
-        ok = persist_endpoint(Transaction, PublisherId, Endpoint2, identifier(Endpoint1), LinkMetadata)
-    end;
-do_publish_link(_, _, message, _, _, delete) ->
-    throw({badarg, delete});
-do_publish_link(Transaction, PublisherId, message, Endpoint1, Endpoint2, LinkMetadata) ->
-    fun() ->
-        ok = message_endpoint(Transaction, PublisherId, Endpoint1, identifier(Endpoint2), LinkMetadata),
-        ok = message_endpoint(Transaction, PublisherId, Endpoint2, identifier(Endpoint1), LinkMetadata)
+        ok = do_endpoint(Transaction,
+                PublisherId, Endpoint1, identifier(Endpoint2), LinkMetadata),
+        ok = do_endpoint(Transaction,
+                PublisherId, Endpoint2, identifier(Endpoint1), LinkMetadata)
     end.
 
 identifier(Identifier) when is_binary(Identifier) ->
@@ -67,25 +42,32 @@ identifier({Identifier, _}) when is_binary(Identifier) ->
 identifier(_) ->
     throw({badarg, identifier}).
 
-persist_endpoint(Transaction, PublisherId, Identifier) when is_binary(Identifier) ->
-    persist_endpoint(Transaction, PublisherId, {Identifier, nochange});
-persist_endpoint(Transaction, PublisherId, {Identifier, Metadata}) ->
+do_endpoint(Transaction, PublisherId, Identifier) when is_binary(Identifier) ->
+    do_endpoint(Transaction, PublisherId, {Identifier, nochange});
+do_endpoint(Transaction, PublisherId, {Identifier, Metadata}) ->
     IdentifierR = dby_store:read_identifier(Identifier),
-    IdentifierR1 = update_identifier_metadata(PublisherId, IdentifierR, Metadata),
+    IdentifierR1 =
+                update_identifier_metadata(PublisherId, IdentifierR, Metadata),
     ok = write_identifier(Transaction, IdentifierR1).
 
-persist_endpoint(Transaction, PublisherId, Identifier, NeighborIdentifier, LinkMetadata) 
-                                            when is_binary(Identifier) ->
-    persist_endpoint(Transaction, PublisherId, {Identifier, nochange}, NeighborIdentifier, LinkMetadata);
-persist_endpoint(Transaction, PublisherId, {Identifier, Metadata}, NeighborIdentifier, LinkMetadata) ->
+do_endpoint(Transaction,
+    PublisherId, Identifier, NeighborIdentifier, LinkMetadata) 
+                                                when is_binary(Identifier) ->
+    do_endpoint(Transaction,
+        PublisherId, {Identifier, nochange}, NeighborIdentifier, LinkMetadata);
+do_endpoint(Transaction,
+        PublisherId, {Identifier, Metadata},
+                                        NeighborIdentifier, LinkMetadata) ->
     IdentifierR = dby_store:read_identifier(Identifier),
-    IdentifierR1 = update_identifier_metadata(PublisherId, IdentifierR, Metadata),
-    IdentifierR2 = update_link(PublisherId, IdentifierR1, NeighborIdentifier, LinkMetadata),
+    IdentifierR1 = update_identifier_metadata(PublisherId,
+                                                    IdentifierR, Metadata),
+    IdentifierR2 = update_link(PublisherId, IdentifierR1,
+                                            NeighborIdentifier, LinkMetadata),
     ok = write_identifier(Transaction, IdentifierR2).
 
-write_identifier(Transaction, IdentifierR = #identifier{id = Identifier, metadata = delete}) ->
+write_identifier(Transaction,
+            IdentifierR = #identifier{id = Identifier, metadata = delete}) ->
     % delete record
-    ok = dby_db:delete({identifier, Identifier}),
     ok = transaction_delete(Transaction, Identifier),
     % delete links to this identifer
     lists:foreach(
@@ -93,9 +75,7 @@ write_identifier(Transaction, IdentifierR = #identifier{id = Identifier, metadat
             ok = remove_link(Transaction, Identifier, NeighborIdentifier)
         end, maps:keys(IdentifierR#identifier.links));
 write_identifier(Transaction, IdentifierR) ->
-    % XXX write only if different
-    ok = transaction_publish(Transaction, IdentifierR),
-    ok = dby_db:write(IdentifierR).
+    ok = transaction_publish(Transaction, IdentifierR).
 
 % remove the link from neighbor identifier
 remove_link(Transaction, Identifier, NeighborIdentifier) ->
@@ -114,9 +94,11 @@ update_identifier_metadata(PublisherId,
         metadata = merge_metadata(PublisherId, OldMetadata, NewMetadata)
     }.
 
-update_link(_, IdentifierR = #identifier{links = Links}, NeighborIdentifier, delete) ->
+update_link(_, IdentifierR = #identifier{links = Links},
+                                            NeighborIdentifier, delete) ->
     IdentifierR#identifier{links = maps:without([NeighborIdentifier], Links)};
-update_link(PublisherId, IdentifierR = #identifier{links = Links}, NeighborIdentifier, LinkMetadata) ->
+update_link(PublisherId, IdentifierR = #identifier{links = Links},
+                                        NeighborIdentifier, LinkMetadata) ->
     OldLinkMetadata = read_link_metadata(Links, NeighborIdentifier),
     IdentifierR#identifier{links =
         maps:put(NeighborIdentifier,
@@ -164,39 +146,66 @@ metadata_proplist(Metadata = #{}) ->
             [{Key, Value} | Acc]
         end, [], Metadata).
 
-message_endpoint(_, _, _) ->
-    error(not_imlemented).
-
-message_endpoint(_, _, _, _, _) ->
-    error(not_imlemented).
-
 apply_in_xact(Fn, Args) ->
     case catch {ok, apply(Fn, Args)} of
         {ok, Reply} -> Reply;
         {'EXIT', Reason} -> mnesia:abort({user_error, Reason})
     end.
 
-transaction_new(user) ->
-    dby_transaction:new();
-transaction_new(system) ->
-    no_transaction.
+transaction_new(user, persistent) ->
+    Transaction = dby_transaction:new(),
+    fun(publish, IdentifierR) ->
+        % XXX write only if different
+        ok = dby_db:write(IdentifierR),
+        ok = dby_transaction:publish(Transaction, IdentifierR);
+       (delete, Identifier) ->
+        ok = dby_db:delete({identifier, Identifier}),
+        ok = dby_transaction:delete(Transaction, Identifier);
+       (commit, {Publish, Fns}) ->
+        case dby_db:transaction(joinfns(Fns)) of
+            ok ->
+                dby_transaction:commit(Transaction, Publish),
+                ok;
+            {error, Reason} ->
+                dby_transaction:abort(Transaction),
+                {error, Reason}
+        end
+    end;
+transaction_new(system, persistent) ->
+    fun(publish, IdentifierR) ->
+        ok = dby_db:write(IdentifierR);
+       (delete, Identifier) ->
+        ok = dby_db:delete({identifier, Identifier});
+       (commit, {_, Fns}) ->
+        dby_db:transaction(joinfns(Fns))
+    end;
+transaction_new(user, message) ->
+    Transaction = dby_transaction:new(),
+    fun(publish, IdentifierR) ->
+        ok = dby_transaction:publish(Transaction, IdentifierR);
+       (delete, Identifier) ->
+        ok = dby_transaction:delete(Transaction, Identifier);
+       (commit, {Publish, Fns}) ->
+        (joinfns(Fns))(),
+        ok = dby_transaction:commit(Transaction, Publish)
+    end.
+% system/message is not supported
 
-transaction_publish(no_transaction, _) ->
-    ok;
 transaction_publish(Transaction, IdentifierR) ->
-    dby_transaction:publish(Transaction, IdentifierR).
+    Transaction(publish, IdentifierR).
 
-transaction_delete(no_transaction, _) ->
-    ok;
-transaction_delete(Transaction, IdentifierR) ->
-    dby_transaction:delete(Transaction, IdentifierR).
+transaction_delete(Transaction, Identifier) ->
+    Transaction(delete, Identifier).
 
-transaction_commit(no_transaction, _) ->
-    ok;
-transaction_commit(Transaction, Publish) ->
-    dby_transaction:commit(Transaction, Publish).
+transaction_commit(Transaction, Publish, Fns) ->
+    Transaction(commit, {Publish, Fns}).
 
-transaction_abort(no_transaction) ->
-    ok;
-transaction_abort(Transaction) ->
-    dby_transaction:abort(Transaction).
+joinfns(Fns) ->
+    fun() ->
+        try
+            lists:foreach(fun(Fn) -> Fn() end, Fns)
+        catch
+            throw:Reason ->
+                dby_db:abort(Reason)
+        end
+    end.
