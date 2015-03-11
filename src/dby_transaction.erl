@@ -135,7 +135,9 @@ notify_subscriptions(Identifiers, Publish, ReadFn) ->
 subscription_ids(Links, Acc0) ->
     maps:fold(
         fun(SubscriptionId, #{system := subscription}, Acc) ->
-            sets:add_element(SubscriptionId, Acc)
+            sets:add_element(SubscriptionId, Acc);
+           (_, _, Acc) ->
+            Acc
         end, Acc0, Links).
 
 run(Job) ->
