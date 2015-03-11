@@ -186,8 +186,14 @@ transaction_new(user, message) ->
        (delete, Identifier) ->
         ok = dby_transaction:delete(Transaction, Identifier);
        (commit, {Publish, Fns}) ->
-        (joinfns(Fns))(),
-        ok = dby_transaction:commit(Transaction, Publish)
+        case dby_db:transaction(joinfns(Fns)) of
+            ok ->
+                dby_transaction:commit(Transaction, Publish),
+                ok;
+            {error, Reason} ->
+                dby_transaction:abort(Transaction),
+                {error, Reason}
+        end
     end.
 % system/message is not supported
 
