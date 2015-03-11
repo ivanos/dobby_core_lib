@@ -18,7 +18,9 @@ dby_subscription_test_() ->
         {"publish - deltafn delta", fun subscription5/0},
         {"publish - deliveryfn stop", fun subscription6/0},
         {"publish - message", fun subscription7/0},
-        {"publish - message delete", fun subscription8/0}
+        {"publish - message delete", fun subscription8/0},
+        {"publish - message publish, persisent sub", fun subscription9/0},
+        {"publish - persistent publish, message sub", fun subscription10/0}
        ]
      }
     }.
@@ -160,7 +162,7 @@ subscription7() ->
     % no publish on message publish
     ok = meck:expect(dby_test_mock, delta_fn, delta_fn(delta)),
     dby_test_utils:dby_read(
-                        dby_test_utils:dby_db(dby_test_utils:example_sub2())),
+                        dby_test_utils:dby_db(dby_test_utils:example_sub3())),
     ok = dby_subscription:publish(<<"sub">>, message, read_fn()),
     Old = [<<"C">>,<<"B">>,<<"A">>],
     New = [<<"E">>,<<"C">>,<<"B">>,<<"A">>],
@@ -173,13 +175,37 @@ subscription8() ->
     ok = meck:expect(dby_test_mock, delta_fn, delta_fn(delta)),
     ok = meck:expect(dby_test_mock, delivery_fn, delivery_fn(stop)),
     dby_test_utils:dby_read(
-                        dby_test_utils:dby_db(dby_test_utils:example_sub2())),
+                        dby_test_utils:dby_db(dby_test_utils:example_sub3())),
     ok = dby_subscription:publish(<<"sub">>, message, read_fn()),
     ?assert(meck:called(dby_test_mock, delta_fn, '_')),
     ?assert(meck:called(dby_test_mock, delivery_fn, '_')),
     {Identifiers, _} = publish_call(),
     [{_, SubscriptionMetadata}] = identifiers(Identifiers),
     ?assertEqual(delete, SubscriptionMetadata).
+
+subscription9() ->
+    % no subscription processsing when message publish, persistent subscription
+    ok = meck:expect(dby_test_mock, delta_fn, delta_fn(delta)),
+    dby_test_utils:dby_read(
+                        dby_test_utils:dby_db(dby_test_utils:example_sub2())),
+    ok = dby_subscription:publish(<<"sub">>, message, read_fn()),
+    Old = [<<"C">>,<<"B">>,<<"A">>],
+    New = [<<"E">>,<<"C">>,<<"B">>,<<"A">>],
+    ?assertEqual(0, meck:num_calls(dby_test_mock, delta_fn, [Old, New])),
+    ?assertEqual(0, meck:num_calls(dby_test_mock, delivery_fn, [{Old, New}])),
+    ?assert(meck:called(dby_publish, publish, ['_', [], '_'])).
+
+subscription10() ->
+    % no subscription processsing when persistent publish, message subscription
+    ok = meck:expect(dby_test_mock, delta_fn, delta_fn(delta)),
+    dby_test_utils:dby_read(
+                        dby_test_utils:dby_db(dby_test_utils:example_sub3())),
+    ok = dby_subscription:publish(<<"sub">>, persistent, read_fn()),
+    Old = [<<"C">>,<<"B">>,<<"A">>],
+    New = [<<"E">>,<<"C">>,<<"B">>,<<"A">>],
+    ?assertEqual(0, meck:num_calls(dby_test_mock, delta_fn, [Old, New])),
+    ?assertEqual(0, meck:num_calls(dby_test_mock, delivery_fn, [{Old, New}])),
+    ?assert(meck:called(dby_publish, publish, ['_', [], '_'])).
 
 % ------------------------------------------------------------------------------
 % helper functions

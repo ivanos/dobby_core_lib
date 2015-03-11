@@ -3,6 +3,8 @@
 % options for all API functions
 -record(options, {
     publish = message :: publish_type(),
+    persistent = false :: boolean(),
+    message = false :: boolean(),
     traversal = breadth :: search_algorithm(),
     type = user :: identifier_type(),
     max_depth = 0 :: non_neg_integer(),

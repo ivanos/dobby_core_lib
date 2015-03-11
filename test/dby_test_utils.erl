@@ -30,7 +30,7 @@ example1() ->
 %    D F G |
 %      |___|
 %
-% subscription that is linked to A, B, C, E
+% persistent subscription that is linked to A, B, C, E
 example_sub1() ->
     [
         identifier1(<<"A">>, [{sub, <<"sub">>},<<"B">>,<<"C">>,<<"E">>]),
@@ -55,7 +55,7 @@ example_sub1() ->
 %
 % subscription that is linked to A, B, C
 % simulates a change in the graph that causes a delta.  E is added to the
-% sesarch result.
+% sesarch result.  persistent subscription.
 example_sub2() ->
     [
         identifier1(<<"A">>, [{sub, <<"sub">>},<<"B">>,<<"C">>,<<"E">>]),
@@ -68,6 +68,31 @@ example_sub2() ->
         % last result order may change depending on dby_subscription or
         % dby_search implementation
         subscription1(<<"sub">>, [<<"C">>,<<"B">>,<<"A">>],
+                [{sub, <<"A">>},{sub, <<"B">>},{sub, <<"C">>}])
+    ].
+
+%        A
+%       /|\
+%      B C E
+%     /| | |
+%    D F G |
+%      |___|
+%
+% subscription that is linked to A, B, C
+% simulates a change in the graph that causes a delta.  E is added to the
+% sesarch result.  message subscription.
+example_sub3() ->
+    [
+        identifier1(<<"A">>, [{sub, <<"sub">>},<<"B">>,<<"C">>,<<"E">>]),
+        identifier1(<<"B">>, [{sub, <<"sub">>},<<"A">>,<<"D">>,<<"F">>]),
+        identifier1(<<"C">>, [{sub, <<"sub">>},<<"A">>,<<"G">>]),
+        identifier1(<<"D">>, [<<"B">>]),
+        identifier1(<<"E">>, [<<"A">>,<<"F">>]),
+        identifier1(<<"F">>, [<<"B">>,<<"E">>]),
+        identifier1(<<"G">>, [<<"C">>]),
+        % last result order may change depending on dby_subscription or
+        % dby_search implementation
+        subscription2(<<"sub">>, [<<"C">>,<<"B">>,<<"A">>],
                 [{sub, <<"A">>},{sub, <<"B">>},{sub, <<"C">>}])
     ].
 
@@ -99,6 +124,13 @@ subscription1(Id, LastResult, Links) ->
         links = links1(Links)
     }.
 
+subscription2(Id, LastResult, Links) ->
+    #identifier{
+        id = Id,
+        metadata = sub_metadata2(LastResult),
+        links = links1(Links)
+    }.
+
 publisherid() -> <<"testpubid">>.
 
 timestamp() -> <<"2015-03-04T00:45:54Z">>.
@@ -114,6 +146,24 @@ sub_metadata(LastResult) ->
         start_identifier => <<"A">>,
         options => #options{
             publish = persistent,
+            persistent = true,
+            traversal = depth,
+            max_depth = 1,
+            delta_fun = fun dby_test_mock:delta_fn/2,
+            delivery_fun = fun dby_test_mock:delivery_fn/1
+        },
+        last_result => LastResult
+    }.
+
+sub_metadata2(LastResult) ->
+    #{
+        system => subscription,
+        search_fun => fun dby_test_mock:search_fn/4,
+        acc0 => [],
+        start_identifier => <<"A">>,
+        options => #options{
+            publish = message,
+            message = true,
             traversal = depth,
             max_depth = 1,
             delta_fun = fun dby_test_mock:delta_fn/2,

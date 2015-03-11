@@ -10,9 +10,9 @@
 options(Options) ->
     lists:foldl(
         fun(persistent, Record) ->
-            Record#options{publish = persistent};
+            Record#options{publish = persistent, persistent = true};
            (message, Record) ->
-            Record#options{publish = message};
+            Record#options{publish = message, message = true};
            (breadth, Record) ->
             Record#options{traversal = breadth};
            (depth, Record) ->

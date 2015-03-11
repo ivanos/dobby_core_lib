@@ -50,9 +50,9 @@ delete(SubscriptionId) ->
     dby_db:transaction(Fn).
 
 -spec publish(identifier(), publish_type(), db_read_fun()) -> ok | {error, reason()}.
-publish(SubscriptionId, Type, ReadFn) ->
+publish(SubscriptionId, Publish, ReadFn) ->
     Fn = fun() ->
-        dby_publish:publish(?PUBLISHER, do_publish(Type,
+        dby_publish:publish(?PUBLISHER, do_publish(Publish,
                                 SubscriptionId, ReadFn), [system, persistent])
     end,
     dby_db:transaction(Fn).
@@ -61,47 +61,55 @@ publish(SubscriptionId, Type, ReadFn) ->
 % Internal functions
 % =============================================================================
 
-do_publish(Type, SubscriptionId, ReadFn) ->
-    % persistent publish - update the subscription's last results
-    % read identifier
+do_publish(Publish, SubscriptionId, ReadFn) ->
     Id0 = dby_store:read_identifier(SubscriptionId),
     #identifier{metadata = Subscription0, links = Links} = Id0,
     % run search
     #{last_result := LastResult,
-      options := #options{delta_fun = DeltaFn,
+      options := #options{persistent = Persistent,
+                          message = Message,
+                          delta_fun = DeltaFn,
                           delivery_fun = DeliveryFn}} = Subscription0,
-    {Discovered, SearchResult} = search(ReadFn, Subscription0),
-    Id1 = case SearchResult =:= LastResult of
-        true ->
-            % subscription search returned the same result set
-            % as last time so there is no delta to process
-            Id0;
+    case (Publish == message andalso Message) orelse
+            (Publish == persistent andalso Persistent) of
         false ->
-            % apply delta
-            case DeltaFn(LastResult, SearchResult) of
-                stop ->
-                    % delete subscription
-                    set_delete(Id0);
-                nodelta ->
-                    % no delta, update the last result in the metadata
-                    % nothing to deliver
-                    set_last_result(Type, Id0, SearchResult);
-                {delta, Delta} ->
-                    % deliver the delta
-                    case DeliveryFn(Delta) of
-                        ok ->
-                            % set the last result in the metadata
-                            set_last_result(Type, Id0, SearchResult);
+            % publish is not the same type as the subscription
+            [];
+        true ->
+            {Discovered, SearchResult} = search(ReadFn, Subscription0),
+            Id1 = case SearchResult =:= LastResult of
+                true ->
+                    % subscription search returned the same result set
+                    % as last time so there is no delta to process
+                    Id0;
+                false ->
+                    % apply delta
+                    case DeltaFn(LastResult, SearchResult) of
                         stop ->
                             % delete subscription
-                            set_delete(Id0)
+                            set_delete(Id0);
+                        nodelta ->
+                            % no delta, update the last result in the metadata
+                            % nothing to deliver
+                            set_last_result(Publish, Id0, SearchResult);
+                        {delta, Delta} ->
+                            % deliver the delta
+                            case DeliveryFn(Delta) of
+                                ok ->
+                                    % set the last result in the metadata
+                                    set_last_result(Publish, Id0, SearchResult);
+                                stop ->
+                                    % delete subscription
+                                    set_delete(Id0)
+                            end
                     end
-            end
-    end,
-    lists:flatten([
-        update_discovered(Type, SubscriptionId, maps:keys(Links), Discovered),
-        publish_id_change(Id0, Id1)
-    ]).
+            end,
+            lists:flatten([
+                update_discovered(Publish, SubscriptionId,
+                                                        maps:keys(Links), Discovered),
+                publish_id_change(Id0, Id1)
+            ])
+    end.
 
 % update the links to the discovered identifiers.  Only do this for
 % persistent publishes.
@@ -181,11 +189,10 @@ search_fun(Fun, Identifier, IdMetadata, LinkMetadata, Acc0) ->
                 {Control, Fun, Acc1}
         end.
 
-search_options(#options{publish = Publish,
-                        loop = LoopDetection,
+search_options(#options{loop = LoopDetection,
                         type = Type,
                         max_depth = MaxDepth}) ->
-    [Publish, Type, {loop, LoopDetection}, {max_depth, MaxDepth}].
+    [Type, {loop, LoopDetection}, {max_depth, MaxDepth}].
 
 id() ->
     term_to_binary({node(), now()}).
