@@ -17,6 +17,7 @@
 
 -include_lib("dobby_clib/include/dobby.hrl").
 -include("dobby.hrl").
+-include("dby_logger.hrl").
 
 -spec subscribe(search_fun(), term(), dby_identifier(), subscribe_options()) -> {ok, dby_identifier()} | {error, reason()}.
 subscribe(Fun, Acc, StartIdentifier, Options) ->
@@ -29,6 +30,7 @@ subscribe(Fun, Acc, StartIdentifier, Options) ->
         options => dby_options:options(Options)
     },
     Id = id(),
+    ?DEBUG("Subscription create: id(~p) start(~s)", [Id, StartIdentifier]),
     Fn = fun() ->
         dby_publish:publish(?PUBLISHER,
                                 subscription(dby_search:read_fn(),
@@ -44,6 +46,7 @@ subscribe(Fun, Acc, StartIdentifier, Options) ->
 
 -spec delete(identifier()) -> ok | {error, reason()}.
 delete(SubscriptionId) ->
+    ?DEBUG("Subscription delete: id(~p)", [SubscriptionId]),
     Fn = fun() ->
         dby_publish:publish(?PUBLISHER, SubscriptionId, delete, [persistent])
     end,
@@ -51,6 +54,8 @@ delete(SubscriptionId) ->
 
 -spec publish(identifier(), publish_type(), db_read_fun()) -> ok | {error, reason()}.
 publish(SubscriptionId, Publish, ReadFn) ->
+    ?DEBUG("Subscription publish: id(~p) options(~p)",
+                                                    [SubscriptionId, Publish]),
     Fn = fun() ->
         dby_publish:publish(?PUBLISHER, do_publish(Publish,
                                 SubscriptionId, ReadFn), [system, persistent])

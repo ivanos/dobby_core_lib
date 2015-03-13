@@ -6,6 +6,7 @@
 
 -include_lib("dobby_clib/include/dobby.hrl").
 -include("dobby.hrl").
+-include("dby_logger.hrl").
 
 -record(search, {
     fn :: fun(),
@@ -33,6 +34,8 @@ search(ReadFn, Fun, Acc, StartIdentifier, Options) ->
     Traversal = OptionsR#options.traversal,
     MaxDepth = OptionsR#options.max_depth,
     TypeFn = typefn(OptionsR#options.type),
+    ?DEBUG("Search: start(~s) options(~p,~p)",
+            [StartIdentifier, Options#options.traversal, Options#options.type]),
     DiscoveryFn = discoveryfn(OptionsR#options.loop),
     Fn =
         fun() ->

@@ -4,6 +4,7 @@
 
 -include_lib("dobby_clib/include/dobby.hrl").
 -include("dobby.hrl").
+-include("dby_logger.hrl").
 
 -spec publish(publisher_id(), [link() | dby_endpoint()], [publish_option()]) -> ok | {error, reason()}.
 publish(_, [], _) ->
@@ -12,6 +13,8 @@ publish(PublisherId, Data, Options) ->
     % XXX need to catch badarg
     Publish = (dby_options:options(Options))#options.publish,
     Type = (dby_options:options(Options))#options.type,
+    ?INFO("Publish: publisher(~s) options(~p,~p) count(~B)",
+                                [PublisherId, Publish, Type, length(Data)]),
     Transaction = transaction_new(Type, Publish),
     Fns = lists:foldl(
         fun({Endpoint1, Endpoint2, LinkMetadata}, Acc) ->
@@ -23,11 +26,15 @@ publish(PublisherId, Data, Options) ->
     transaction_commit(Transaction, Publish, Fns).
 
 publish_endpoint(Transaction, PublisherId, Endpoint) ->
+    ?DEBUG("Publish link: publisher(~s) ~p",
+                                        [PublisherId, identifier(Endpoint)]),
     fun() ->
         ok = do_endpoint(Transaction, PublisherId, Endpoint)
     end.
 
 publish_link(Transaction, PublisherId, Endpoint1, Endpoint2, LinkMetadata) ->
+    ?DEBUG("Publish link: publisher(~s) ~p <-> ~p",
+                [PublisherId, identifier(Endpoint1), identifier(Endpoint2)]),
     fun() ->
         ok = do_endpoint(Transaction,
                 PublisherId, Endpoint1, identifier(Endpoint2), LinkMetadata),
