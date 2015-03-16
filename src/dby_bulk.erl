@@ -1,3 +1,6 @@
+% @doc
+% Server-side bulk data loader.
+% @end
 -module(dby_bulk).
 
 -export([export/2,
@@ -38,7 +41,8 @@ export(json, Filename) ->
 % The only supported formats are `json' and `json0'.
 %
 % `json0' is a backward compatible importer.  Use this for the first
-% version of the export files.
+% version of the export files that does not have publisher id or
+% publish timestamps on metadata.
 % @end
 -spec import(Format :: json | json0, string()) -> ok | {error, reason()}.
 import(Format, Filename) ->
@@ -52,6 +56,7 @@ import(Format, Filename) ->
 % export helper functions
 % ==============================================================================
 
+% Format a link for jiffy.  "system" links are ignored.
 json_link(#identifier{metadata = #{system := _}}) ->
     % do not save system identifiers
     [];
@@ -72,6 +77,7 @@ json_link(#identifier{id = Identifier, metadata = Metadata, links = Links}) ->
             end, [], Links)
     ].
 
+% Format metadata for jiffy.
 json_metadatainfo(Metadata) ->
     maps:fold(
         fun(Key, #{value := Value, publisher_id := PublisherId, timestamp := Timestamp}, Acc) ->
@@ -82,6 +88,7 @@ json_metadatainfo(Metadata) ->
             ]}} | Acc]
         end, [], Metadata).
 
+% Translate a metadata value into jiffy format.
 json_metadata(true) ->
     true;
 json_metadata(false) ->
@@ -104,7 +111,6 @@ json_metadata(Data) when is_map(Data) ->
                 [{Key, json_metadata(Value)} | Acc]
             end, [], Data)
     }.
-
 
 % ==============================================================================
 % import helper functions
