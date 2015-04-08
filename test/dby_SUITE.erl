@@ -115,8 +115,7 @@ subscription2(_Config) ->
 %%%=============================================================================
 
 start_applications() ->
-    application:ensure_all_started(dobby),
-    application:ensure_all_started(dobby_oflib).
+    application:ensure_all_started(dobby).
 
 is_dobby_server_running() ->
     proplists:is_defined(dobby, application:which_applications()).

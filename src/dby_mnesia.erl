@@ -1,6 +1,6 @@
 -module(dby_mnesia).
 
--export([start/0]).
+-export([start/0, clear/0]).
 
 -include_lib("dobby_clib/include/dobby.hrl").
 -include("dobby.hrl").
@@ -53,3 +53,10 @@ tabledefs() ->
                       {disc_copies, [node()]},
                       {type, set}]}
     ].
+
+clear() ->
+    lists:foreach(
+        fun({Name, _}) ->
+            {atomic, ok} = mnesia:clear_table(Name)
+        end,
+    tabledefs()).
