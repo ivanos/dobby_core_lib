@@ -27,7 +27,8 @@ dby_search_test_() ->
         {"link loop", fun search12/0},
         {"system", fun search13/0},
         {"path", fun search14/0},
-        {"depth loop, link check", fun search15/0}
+        {"depth loop, link check", fun search15/0},
+        {"depth loop 2, link check", fun search16/0}
        ]
      }
     }.
@@ -269,6 +270,15 @@ search15() ->
                             [], <<"A">>,
                             [depth, {max_depth, 10}, {loop, link}]))).
 
+search16() ->
+    % link loop detection
+    dby_test_utils:dby_read(dby_test_utils:dby_db(dby_test_utils:example5())),
+    {_, Result} = dby_search:search(search_fn4(),
+                        {[<<"F">>,<<"G">>],[]}, <<"B">>,
+                        [depth, {max_depth, 10}, {loop, link}]),
+    ?assertEqual([<<"A">>,<<"B">>,<<"B">>,<<"C">>,<<"D">>,<<"E">>,<<"F">>,<<"G">>,<<"H">>],
+                                                        lists:sort(Result)).
+
 % ------------------------------------------------------------------------------
 % helper functions
 % ------------------------------------------------------------------------------
@@ -288,6 +298,16 @@ search_fn2(Control) ->
 search_fn3() ->
     fun(Identifier, _, Path, Acc) ->
         {continue, [{Identifier, [Id || {Id, _, _} <- Path]} | Acc]}
+    end.
+
+search_fn4() ->
+    fun(Identifier, _, _, {SkipOn, Acc}) ->
+%       ?debugFmt("~p: ~p~n", [Identifier, [Id || {Id, _, _} <- Path]]),
+        Acc1 = [Identifier | Acc],
+        case lists:member(Identifier, SkipOn) of
+            true -> {skip, {SkipOn, Acc1}};
+            false -> {continue, {SkipOn, Acc1}}
+        end
     end.
 
 search_fn_stop_on(StopOnIdentifier) ->
@@ -313,6 +333,9 @@ list_before(X, Y, List) ->
                 E == X orelse E == Y
             end, List),
     XY == [X,Y].
+
+count(Element, List) ->
+    length(lists:filter(fun(E) -> E == Element end, List)).
 
 tr() ->
     dbg:start(),

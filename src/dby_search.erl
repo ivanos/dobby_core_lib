@@ -14,7 +14,7 @@
     from = undefined :: dby_identifier() | undefined,
     metadata :: jsonable(),
     path :: [{dby_identifier(), metadata_info(), metadata_info()}], % metadata on link to this identifier
-    links :: [{dby_identifier(), metadata_info()}], % remaining links to follow
+    links = [] :: [{dby_identifier(), metadata_info()}], % remaining links to follow
     depth :: non_neg_integer(),
     loaded = false
 }).
@@ -73,11 +73,11 @@ depth_search(_, _, _, _, _, [], Acc) ->
 depth_search(stop, _, _, _, _, _, Acc) ->
     % search function says stop
     Acc;
-depth_search(skip, ReadFn, MaxDepth, TypeFn, DiscoveryFn, [_ | Rest], Acc) ->
-    % do not traverse any links from the parent's identifier.
-    % depth_search_next pushes the next identifier onto the stack 
-    % before checking Control.
-    depth_search(continue, ReadFn, MaxDepth, TypeFn, DiscoveryFn, Rest, Acc);
+depth_search(skip, ReadFn, MaxDepth, TypeFn, DiscoveryFn,
+                                    State0 = [#search{fn = Fun} | _], Acc) ->
+    % Skip this identifier.
+    State1 = depth_search_next(State0, TypeFn, DiscoveryFn, Fun),
+    depth_search(continue, ReadFn, MaxDepth, TypeFn, DiscoveryFn, State1, Acc);
 depth_search(continue, ReadFn, MaxDepth, TypeFn, DiscoveryFn,
                 [#search{depth = Depth} | Rest], Acc) when Depth > MaxDepth ->
     % depth exceed maximum search depth - skip this identifier
