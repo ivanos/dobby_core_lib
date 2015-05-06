@@ -27,6 +27,7 @@ dby_subscription_test_() ->
 
 setup() ->
     ok = meck:new(dby_db), 
+    ok = meck:expect(dby_db, exists, 1, true),
     ok = meck:expect(dby_db, write, 1, ok),
     ok = meck:expect(dby_db, delete, 1, ok),
     ok = meck:expect(dby_db, transaction, fun(Fn) -> Fn() end),

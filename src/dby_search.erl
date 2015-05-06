@@ -39,8 +39,13 @@ search(ReadFn, Fun, Acc, StartIdentifier, Options) ->
     DiscoveryFn = discoveryfn(OptionsR#options.loop),
     Fn =
         fun() ->
-            do_search(Traversal, ReadFn, TypeFn, DiscoveryFn, MaxDepth,
-                                                Fun, StartIdentifier, Acc)
+            case dby_db:exists({identifier, StartIdentifier}) of
+                true ->
+                    do_search(Traversal, ReadFn, TypeFn, DiscoveryFn, MaxDepth,
+                                                    Fun, StartIdentifier, Acc);
+                false ->
+                    Acc
+            end
         end,
     dby_db:transaction(Fn).
 

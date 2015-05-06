@@ -5,6 +5,7 @@
          abort/1,
          write/1,
          read/1,
+         exists/1,
          delete/1,
          foldl/3,
          clear/0]).
@@ -29,6 +30,9 @@ write(Record) ->
 
 read(Key) ->
     mnesia:read(Key).
+
+exists(Key) ->
+    [] /= mnesia:read(Key).
 
 delete(Key) ->
     ok = mnesia:delete(Key).
