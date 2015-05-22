@@ -34,7 +34,7 @@ export(json, Filename) ->
         ))
     end,
     Data = dby_db:transaction(Fn),
-    file:write_file(Filename, jiffy:encode(Data)).
+    file:write_file(Filename, jiffy:encode(Data, [pretty])).
 
 % @doc
 % `import/2' imports a file written `export/2' into the graph database.
