@@ -26,7 +26,7 @@ publish(PublisherId, Data, Options) ->
     transaction_commit(Transaction, Publish, Fns).
 
 publish_endpoint(Transaction, PublisherId, Endpoint) ->
-    ?DEBUG("Publish link: publisher(~s) ~p",
+    ?DEBUG("Publish endpoint: publisher(~s) ~p",
                                         [PublisherId, identifier(Endpoint)]),
     fun() ->
         ok = do_endpoint(Transaction, PublisherId, Endpoint)
