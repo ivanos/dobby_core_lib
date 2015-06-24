@@ -18,6 +18,8 @@ dby_search_test_() ->
         {"depth first", fun search3/0},
         {"depth stop", fun search4/0},
         {"depth skip", fun search5/0},
+        {"depth skip alt a", fun search5a/0},
+        {"depth skip alt b", fun search5b/0},
         {"breadth no links", fun search6/0},
         {"breadth links", fun search7/0},
         {"breadth first", fun search8/0},
@@ -114,8 +116,23 @@ search5() ->
     % skip
     dby_test_utils:dby_read(dby_test_utils:dby_db(dby_test_utils:example2())),
     ?assertEqual([<<"A">>,<<"B">>,<<"C">>,<<"E">>],
-            lists:sort(dby_search:search(search_fn_skip_on(<<"B">>), [], <<"A">>,
-                                                    [depth, {max_depth, 2}]))).
+            lists:sort(dby_search:search(search_fn_skip_on(<<"B">>),
+                        [], <<"A">>, [depth, {max_depth, 2}]))).
+
+search5a() ->
+    % skip when there is more depth
+    dby_test_utils:dby_read(dby_test_utils:dby_db(dby_test_utils:example6())),
+    ?assertEqual([<<"A">>,<<"B">>,<<"C">>],
+            lists:sort(dby_search:search(search_fn_skip_on(<<"C">>),
+                        [], <<"A">>, [depth, {loop, link}, {max_depth, 5}]))).
+
+search5b() ->
+    % skip on first identifier
+%   tr(),
+    dby_test_utils:dby_read(dby_test_utils:dby_db(dby_test_utils:example6())),
+    ?assertEqual([<<"A">>],
+            lists:sort(dby_search:search(search_fn_skip_on(<<"A">>),
+                        [], <<"A">>, [depth, {loop, link}, {max_depth, 5}]))).
 
 search6() ->
     % no links
@@ -343,4 +360,7 @@ tr() ->
     dbg:tracer(),
     dbg:p(all, c),
     % dbg:tpl(dby_search, [{'_', [], [{return_trace}]}]).
-    dbg:tpl(dby_search, []).
+    dbg:tpl(dby_search, depth_search, []),
+    dbg:tpl(dby_search, depth_search_next, []),
+    dbg:tpl(dby_search, first_not_discovered, []),
+    dbg:tpl(dby_search, depth_search_next, []).
