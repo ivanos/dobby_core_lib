@@ -149,6 +149,21 @@ example5() ->
         identifier1(<<"H">>,[<<"D">>,<<"E">>])
     ].
 
+%               D
+%              /
+%   A -- B -- C -- E
+%              \
+%               F
+example6() ->
+    [
+        identifier1(<<"A">>,[<<"B">>]),
+        identifier1(<<"B">>,[<<"A">>,<<"C">>]),
+        identifier1(<<"C">>,[<<"B">>,<<"D">>,<<"E">>,<<"F">>]),
+        identifier1(<<"D">>,[<<"C">>]),
+        identifier1(<<"E">>,[<<"C">>]),
+        identifier1(<<"F">>,[<<"C">>])
+    ].
+
 subscription1(Id, LastResult, Links) ->
     #identifier{
         id = Id,

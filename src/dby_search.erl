@@ -79,9 +79,9 @@ depth_search(stop, _, _, _, _, _, Acc) ->
     % search function says stop
     Acc;
 depth_search(skip, ReadFn, MaxDepth, TypeFn, DiscoveryFn,
-                                    State0 = [#search{fn = Fun} | _], Acc) ->
-    % Skip this identifier.
-    State1 = depth_search_next(State0, TypeFn, DiscoveryFn, Fun),
+                                State0 = [#search{fn = Fun} | _], Acc) ->
+    % Skip this identifier
+    State1 = depth_search_next(continue, State0, TypeFn, DiscoveryFn, Fun),
     depth_search(continue, ReadFn, MaxDepth, TypeFn, DiscoveryFn, State1, Acc);
 depth_search(continue, ReadFn, MaxDepth, TypeFn, DiscoveryFn,
                 [#search{depth = Depth} | Rest], Acc) when Depth > MaxDepth ->
@@ -94,7 +94,7 @@ depth_search(continue, ReadFn, MaxDepth, TypeFn, DiscoveryFn0,
     case DiscoveryFn0(is, Identifier, From) of
         true ->
             % traverse the next link
-            State1 = depth_search_next(State0, TypeFn, DiscoveryFn0,
+            State1 = depth_search_next(continue, State0, TypeFn, DiscoveryFn0,
                                                         Search0#search.fn),
             depth_search(continue, ReadFn, MaxDepth, TypeFn, DiscoveryFn0,
                                                         State1, Acc0);
@@ -109,16 +109,23 @@ depth_search(continue, ReadFn, MaxDepth, TypeFn, DiscoveryFn0,
                                               Acc0),
             % traverse the next link
             State1 = [Search1 | RestState],
-            State2 = depth_search_next(State1, TypeFn, DiscoveryFn1, Fun1),
+            State2 = depth_search_next(Control, State1, TypeFn, DiscoveryFn1, Fun1),
             depth_search(Control, ReadFn, MaxDepth, TypeFn, DiscoveryFn1, State2, Acc1)
     end.
 
 % process the next identifier in the search
-depth_search_next([Search0 = #search{links = Links,
-                                     identifier = Identifier,
-                                     metadata = Metadata,
-                                     path = Path} |
-                                    SearchStack0], TypeFn, DiscoveryFn, Fun1) ->
+depth_search_next(stop, SearchStack0, _, _, _) ->
+    % search is stopping so need to need to do anything
+    SearchStack0;
+depth_search_next(skip, [_ | SearchStack0], _, _, _) ->
+    % skipping this identifier - pop it off the stack
+    SearchStack0;
+depth_search_next(continue,
+        [Search0 = #search{links = Links,
+                           identifier = Identifier,
+                           metadata = Metadata,
+                           path = Path} | SearchStack0],
+        TypeFn, DiscoveryFn, Fun1) ->
     % get the next link to traverse
     case first_not_discovered(Identifier, Links, TypeFn, DiscoveryFn) of
         [] ->
