@@ -22,7 +22,8 @@ generate keys in `deps/erl_sshd`.
 % rebar generate
 ```
 If you want to connect to the dobby Erlang shell using ssh with
-a username and password, add or modify the usernames and passwords
+a username and password, create the keys to generate a host key, and
+add or modify the usernames and passwords
 in the `erl_sshd` section of `rel/files/sys.config`.
 
 ## Running
