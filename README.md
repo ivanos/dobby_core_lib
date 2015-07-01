@@ -12,19 +12,24 @@ This is an open source project sponsored by Infoblox.
 ## Building
 If you want to connect to the dobby Erlang shell using ssh with
 keys, you must
-generate keys in `deps/erl_sshd`.
+generate keys for `deps/erl_sshd`.  Using make:
+```
+% make
+```
+Using rebar directly:
 ```
 % rebar get-deps
 % rebar compile
-% cd deps/erl_sshd   # to generate keys for sshd
-% make keys          # 
-% cd ../../          #
+% deps/erl_sshd/make_keys
 % rebar generate
 ```
+You may add your own public keys to the `authorized_keys` file in
+`priv/erl_sshd` (remember to `rebar generate` afterwards).
+
 If you want to connect to the dobby Erlang shell using ssh with
-a username and password, create the keys to generate a host key, and
+a username and password,
 add or modify the usernames and passwords
-in the `erl_sshd` section of `rel/files/sys.config`.
+to the `erl_sshd` section of `rel/files/sys.config`.
 
 ## Running
 ```
@@ -35,7 +40,7 @@ in the `erl_sshd` section of `rel/files/sys.config`.
 If you genereated keys in erl_sshd before generating the dobby release,
 you can connect to the dobby server's Erlang shell using ssh.
 ```
-ssh 127.0.0.1 -p 11133 -i deps/erl_sshd/id_rsa -o UserKnownHostsFile=known_hosts
+ssh 127.0.0.1 -p 11133 -i id_rsa
 ```
 
 ## Clients
