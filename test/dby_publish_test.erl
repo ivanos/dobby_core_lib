@@ -88,14 +88,17 @@ publish3() ->
     % update link metadata
     Identifier1 = <<"id1">>,
     Identifier2 = <<"id2">>,
-    LinkMetadata = [{<<"key1">>,<<"value1">>}],
+    LinkMetadata = [{<<"key1">>,<<"value1">>},
+                    {<<"key3">>,<<"value3">>}],
     NewLinkMetadata = [{<<"key1">>,<<"value2">>}],
+    MergedMetadata = [{<<"key1">>,<<"value2">>},
+                      {<<"key3">>,<<"value3">>}],
     IdentifierR1 = identifier(Identifier1, [], Identifier2, LinkMetadata),
     IdentifierR2 = identifier(Identifier2, [], Identifier1, LinkMetadata),
     dby_test_utils:dby_read([[IdentifierR1],[IdentifierR2]]),
     ok = dby_publish:publish(?PUBLISHER_ID, [{Identifier1, Identifier2, NewLinkMetadata}], [persistent]),
-    ?assert(meck:called(dby_db, write, [IdentifierR1#identifier{links = maps:put(Identifier2, metadatainfo(NewLinkMetadata), #{})}])),
-    ?assert(meck:called(dby_db, write, [IdentifierR2#identifier{links = maps:put(Identifier1, metadatainfo(NewLinkMetadata), #{})}])).
+    ?assert(meck:called(dby_db, write, [IdentifierR1#identifier{links = maps:put(Identifier2, metadatainfo(MergedMetadata), #{})}])),
+    ?assert(meck:called(dby_db, write, [IdentifierR2#identifier{links = maps:put(Identifier1, metadatainfo(MergedMetadata), #{})}])).
 
 publish4() ->
     % update link metadata
@@ -114,18 +117,24 @@ publish4() ->
 publish5() ->
     % update identifier metadata
     Identifier1 = <<"id1">>,
-    Identifier1Metadata = [{<<"key_id1">>, <<"value_id1">>}],
+    Identifier1Metadata = [{<<"key_id1">>, <<"value_id1">>},
+                           {<<"key2_id1">>, <<"value2_id1">>}],
     NewIdentifier1Metadata = [{<<"key_id1">>, <<"value_id1new">>}],
+    MergedIdentifier1Metadata = [{<<"key_id1">>, <<"value_id1new">>},
+                                 {<<"key2_id1">>, <<"value2_id1">>}],
     Identifier2 = <<"id2">>,
-    Identifier2Metadata = [{<<"key_id2">>, <<"value_id2">>}],
+    Identifier2Metadata = [{<<"key_id2">>, <<"value_id2">>},
+                           {<<"key2_id2">>, <<"value2_id2">>}],
     NewIdentifier2Metadata = [{<<"key_id2">>, <<"value_id2new">>}],
+    MergedIdentifier2Metadata = [{<<"key_id2">>, <<"value_id2new">>},
+                                 {<<"key2_id2">>, <<"value2_id2">>}],
     LinkMetadata = [{<<"key1">>, <<"value1">>}],
     IdentifierR1 = identifier(Identifier1, Identifier1Metadata, Identifier2, LinkMetadata),
     IdentifierR2 = identifier(Identifier2, Identifier2Metadata, Identifier1, LinkMetadata),
     dby_test_utils:dby_read([[IdentifierR1],[IdentifierR2]]),
     ok = dby_publish:publish(?PUBLISHER_ID, [{{Identifier1, NewIdentifier1Metadata}, {Identifier2, NewIdentifier2Metadata}, LinkMetadata}], [persistent]),
-    ?assert(meck:called(dby_db, write, [IdentifierR1#identifier{metadata = metadatainfo(NewIdentifier1Metadata)}])),
-    ?assert(meck:called(dby_db, write, [IdentifierR2#identifier{metadata = metadatainfo(NewIdentifier2Metadata)}])).
+    ?assert(meck:called(dby_db, write, [IdentifierR1#identifier{metadata = metadatainfo(MergedIdentifier1Metadata)}])),
+    ?assert(meck:called(dby_db, write, [IdentifierR2#identifier{metadata = metadatainfo(MergedIdentifier2Metadata)}])).
 
 publish6() ->
     % update identifer metadata with function

@@ -6,7 +6,7 @@ COMBO_PLT = $(HOME)/.dobby_combo_dialyzer_plt
 
 all: generate
 
-generate: compile id_rsa
+generate: compile
 	./rebar generate
 
 compile:
@@ -51,6 +51,3 @@ compile test clean: rebar
 rebar:
 	wget -c http://github.com/rebar/rebar/wiki/rebar
 	chmod +x $@
-
-id_rsa:
-	deps/erl_sshd/make_keys
