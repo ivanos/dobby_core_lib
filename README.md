@@ -4,47 +4,15 @@ server.  Unlike the IF-Map server, Dobby is intended to be a more
 general purpose graph database that applications can then use for
 whatever purpose they require.
 
+This repository, dobby_core_lib is the implementation of dobby which
+can be used as a dependency to build nodes containing a dobby server.
+https://github.com/ivanos/dobby_core_node.git runs Dobby as a
+standalone service.
+
 This is an open source project sponsored by Infoblox.
 
 ## Requirements
 - Erlang R17+
-
-## Building
-If you want to connect to the dobby Erlang shell using ssh with
-keys, you must
-generate keys for `deps/erl_sshd`.  Using make:
-```
-% make
-```
-Using rebar directly:
-```
-% rebar get-deps
-% rebar compile
-% deps/erl_sshd/make_keys
-% rebar generate
-```
-You may add your own public keys to the `authorized_keys` file in
-`priv/erl_sshd` (remember to `rebar generate` afterwards).
-
-If you want to connect to the dobby Erlang shell using ssh with
-a username and password,
-add or modify the usernames and passwords
-to the `erl_sshd` section of `rel/files/sys.config`.
-
-## Running
-```
-% rel/dobby/bin/dobby console
-```
-
-## Connecting via ssh
-If you genereated keys in erl_sshd before generating the dobby release,
-you can connect to the dobby server's Erlang shell using ssh.
-```
-ssh 127.0.0.1 -p 11133 -i id_rsa
-```
-
-## Clients
-Use `dobby_clib` to send commands to the dobby server.
 
 ## Utility Functions
 - dby_bulk:export(Format, Filename): writes the graph database to the
