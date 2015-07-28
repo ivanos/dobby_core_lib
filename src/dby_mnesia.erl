@@ -8,7 +8,6 @@
 % start mnesia and create the on disk schema and tables if
 % they don't already exist.
 start() ->
-    ok = mnesia:start(),
     schema(),
     tables().
 
