@@ -4,10 +4,7 @@ COMBO_PLT = $(HOME)/.dobby_combo_dialyzer_plt
 
 .PHONY: all compile deps test clean distclean ct
 
-all: generate
-
-generate: compile
-	./rebar generate
+all: compile
 
 compile:
 	./rebar get-deps compile
