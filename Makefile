@@ -2,9 +2,7 @@ APPS = kernel stdlib sasl erts ssl tools runtime_tools crypto inets \
 	public_key mnesia syntax_tools compiler
 COMBO_PLT = $(HOME)/.dobby_combo_dialyzer_plt
 
-.PHONY: all compile deps test clean distclean ct
-
-all: compile
+.PHONY: compile deps test clean ct build_plt check_plt
 
 compile:
 	./rebar get-deps compile
@@ -17,9 +15,6 @@ eunit: compile
 
 ct: compile
 	./rebar -v ct $(CTARGS)
-
-distclean: clean
-	./rebar delete-deps
 
 clean:
 	./rebar clean
@@ -41,7 +36,9 @@ dialyzer: compile
 
 dev: compile
 	erl -pa ebin -pa deps/*/ebin \
-	-eval "application:ensure_all_started(dobby_oflib)."
+	-eval "application:ensure_all_started(dobby)." \
+	-name dobby@127.0.0.1 \
+	-setcookie dobby
 
 compile test clean: rebar
 

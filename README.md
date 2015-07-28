@@ -11,8 +11,37 @@ standalone service.
 
 This is an open source project sponsored by Infoblox.
 
+<!-- markdown-toc start - Don't edit this section. Run M-x markdown-toc/generate-toc again -->
+**Table of Contents**
+
+- [Dobby](#dobby)
+    - [Requirements](#requirements)
+    - [Building](#building)
+    - [Running](#running)
+    - [Clients](#clients)
+    - [Utility Functions](#utility-functions)
+        - [json import/export format](#json-importexport-format)
+    - [Origin of Name](#origin-of-name)
+
+<!-- markdown-toc end -->
+
+
 ## Requirements
 - Erlang R17+
+
+## Building
+To build the application call: `make`.
+
+## Running
+
+To run `dobby` as an Erlang node use
+[dobby_allinone_node](https://github.com/ivanos/dobby_allinone_node).
+
+To run `dobby` straight away call `make dev`.
+
+## Clients
+Use [dobby_clib](https://github.com/ivanos/dobby_clib) to send commands
+to the dobby server.
 
 ## Utility Functions
 - dby_bulk:export(Format, Filename): writes the graph database to the
