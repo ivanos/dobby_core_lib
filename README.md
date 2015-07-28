@@ -4,7 +4,7 @@ server.  Unlike the IF-Map server, Dobby is intended to be a more
 general purpose graph database that applications can then use for
 whatever purpose they require.
 
-This repository, dobby_core_lib is the implementation of dobby which
+This repository, dobby_core_lib, is the implementation of Dobby which
 can be used as a dependency to build nodes containing a dobby server.
 https://github.com/ivanos/dobby_core_node.git runs Dobby as a
 standalone service.
