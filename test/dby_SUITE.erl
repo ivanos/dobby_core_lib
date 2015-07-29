@@ -115,6 +115,7 @@ subscription2(_Config) ->
 %%%=============================================================================
 
 start_applications() ->
+    ok = application:set_env(erl_mnesia, options, [persistent]),
     application:ensure_all_started(dobby).
 
 is_dobby_server_running() ->

@@ -37,6 +37,7 @@ select_random(L) ->
     lists:nth(random:uniform(length(L)), L).
 
 start_dobby() ->
+    ok = application:set_env(erl_mnesia, options, [persistent]),
     application:ensure_all_started(dobby),
     mnesia:wait_for_tables([identifiers], 5000).
 
