@@ -6,6 +6,10 @@
   {applications, [
                   kernel,
                   stdlib,
+                  iso8601,
+                  lager,
+                  jiffy,
+                  dobby_clib,
                   erl_mnesia
                  ]},
   {mod, { dobby_app, []}},
