@@ -40,6 +40,7 @@ end_per_testcase(_,_) ->
 
 all() ->
     [search1,
+     delete1,
      subscription1,
      subscription2].
 
@@ -68,6 +69,24 @@ search1(_Config) ->
         [<<"A">>,<<"B">>,<<"C">>,<<"E">>],
         lists:sort(
             dby:search(search_fn1(), [], <<"A">>, [breadth, {max_depth, 1}]))).
+
+-define(KEY, <<"when">>).
+delete1(_Config) ->
+    %% GIFEN
+    Identifier = <<"A">>,
+    AfterMeta = <<"after delete">>,
+    BeforeIdentifier = {Identifier, [{?KEY, <<"before delete">>}]},
+    AfterIdentifier = {Identifier, [{?KEY, AfterMeta}]},
+    ok = dby:publish(?PUBLISHER_ID, [BeforeIdentifier], [persistent]),
+
+    %% WHEN
+    ok = dby:publish(?PUBLISHER_ID, [{Identifier, delete},
+                                     AfterIdentifier], [persistent]),
+
+    %% THEN
+    ?assertMatch(
+        #{?KEY := #{value := AfterMeta}},
+        dby:identifier(Identifier)).
 
 subscription1(_Config) ->
     %% GIVEN

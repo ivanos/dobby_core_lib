@@ -23,7 +23,7 @@ publish(PublisherId, Data, Options) ->
            (Endpoint, Acc) ->
             [publish_endpoint(Transaction, PublisherId, Endpoint) | Acc]
         end, [], Data),
-    transaction_commit(Transaction, Publish, Fns).
+    transaction_commit(Transaction, Publish, lists:reverse(Fns)).
 
 publish_endpoint(Transaction, PublisherId, Endpoint) ->
     ?DEBUG("Publish endpoint: publisher(~s) ~p",
