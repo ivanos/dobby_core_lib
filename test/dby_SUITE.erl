@@ -93,7 +93,7 @@ subscription1(_Config) ->
     Graph = graph(),
     Ref = make_ref(),
     ok = dby:publish(?PUBLISHER_ID, Graph, [persistent]),
-    {ok, _} = dby:subscribe(search_fn1(), [], <<"A">>,
+    {ok, _, _} = dby:subscribe(search_fn1(), [], <<"A">>,
         [depth, {max_depth, 10}, persistent,
             {delta, delta_fn1()}, {delivery, delivery_fn1(Ref)}]),
 
@@ -112,7 +112,7 @@ subscription2(_Config) ->
     Graph = graph(),
     Ref = make_ref(),
     ok = dby:publish(?PUBLISHER_ID, Graph, [persistent]),
-    {ok, _} = dby:subscribe(search_fn1(), [], <<"A">>,
+    {ok, _, _} = dby:subscribe(search_fn1(), [], <<"A">>,
         [depth, {max_depth, 10}, message,
             {delta, delta_fn1()}, {delivery, delivery_fn1(Ref)}]),
 

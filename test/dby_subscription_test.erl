@@ -55,7 +55,7 @@ each_setup() ->
 subscription1() ->
     % create subscription
     dby_test_utils:dby_read(dby_test_utils:dby_db(dby_test_utils:example1())),
-    dby_subscription:subscribe(search_fn(), [], <<"A">>,
+    {ok, _, _} = dby_subscription:subscribe(search_fn(), [], <<"A">>,
         [{max_depth, 1}, depth, persistent,
         {delta, delta_fn(delta)}, {delivery, delivery_fn(ok)}]),
     {Identifiers, Options} = publish_call(),

@@ -31,15 +31,15 @@ subscribe(Fun, Acc, StartIdentifier, Options) ->
     },
     Id = id(),
     ?DEBUG("Subscription create: id(~p) start(~s)", [Id, StartIdentifier]),
+    {SubscriptionIdentifier, FirstResult} = subscription(dby_search:read_fn(),
+                                                         Id, Subscription),
     Fn = fun() ->
         dby_publish:publish(?PUBLISHER,
-                                subscription(dby_search:read_fn(),
-                                                    Id, Subscription),
-                                                        [system, persistent])
+                                SubscriptionIdentifier, [system, persistent])
     end,
     case dby_db:transaction(Fn) of
         ok ->
-            {ok, Id};
+            {ok, FirstResult, Id};
         Error ->
             Error
     end.
@@ -156,14 +156,16 @@ subscription(ReadFn, Id, Subscription0 = #{system := subscription}) ->
     % run search and identify identifiers touched by search
     {Discovered, SearchResult} = search(ReadFn, Subscription0),
     % return list of identifiers to publish
-    [
+    {[
         % subscription
         {Id, maps:to_list(Subscription0#{last_result => SearchResult})} |
         lists:map(
             fun(Identifier) ->
                 {Id, Identifier, [{system, subscription}]}
             end, Discovered)
-    ].
+     ],
+     SearchResult
+    }.
 
 % returns list of identifiers traversed by the search and search result
 search(ReadFn, #{
@@ -200,4 +202,6 @@ search_options(#options{loop = LoopDetection,
     [Type, {loop, LoopDetection}, {max_depth, MaxDepth}].
 
 id() ->
-    term_to_binary({node(), now()}).
+    {A, B, C} = now(),
+    Now = integer_to_binary(((A * 1000000) + B) * 1000000 + C),
+    iolist_to_binary([atom_to_list(node()), $-, Now]).
