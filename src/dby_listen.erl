@@ -1,6 +1,7 @@
 -module(dby_listen).
 -behaviour(gen_server).
--define(SERVER, ?MODULE).
+
+-include("dby_logger.hrl").
 
 %% ------------------------------------------------------------------
 %% API Function Exports
@@ -90,6 +91,7 @@ run(From, Job) ->
             Job()
         catch
             Type:Reason ->
+                ?ERROR("job error: Type(~p), Reason(~p)", [Type, Reason]),
                 {error, {Type, Reason}}
         end,
         gen_server:reply(From, Reply)
