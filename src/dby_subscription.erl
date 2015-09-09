@@ -30,12 +30,11 @@ subscribe(Fun, Acc, StartIdentifier, Options) ->
         options => dby_options:options(Options)
     },
     Id = id(),
-    ?DEBUG("Subscription create: id(~p) start(~s)", [Id, StartIdentifier]),
-    {SubscriptionIdentifier, FirstResult} = subscription(dby_search:read_fn(),
+    ?DEBUG("Subscription create: id(~s) start(~s)", [Id, StartIdentifier]),
+    {SubscriptionLinks, FirstResult} = subscription(dby_search:read_fn(),
                                                          Id, Subscription),
     Fn = fun() ->
-        dby_publish:publish(?PUBLISHER,
-                                SubscriptionIdentifier, [system, persistent])
+        dby_publish:publish(?PUBLISHER, SubscriptionLinks, [system, persistent])
     end,
     case dby_db:transaction(Fn) of
         ok ->
@@ -46,9 +45,10 @@ subscribe(Fun, Acc, StartIdentifier, Options) ->
 
 -spec delete(identifier()) -> ok | {error, reason()}.
 delete(SubscriptionId) ->
-    ?DEBUG("Subscription delete: id(~p)", [SubscriptionId]),
+    ?DEBUG("Subscription delete: id(~s)", [SubscriptionId]),
     Fn = fun() ->
-        dby_publish:publish(?PUBLISHER, SubscriptionId, delete, [persistent])
+        dby_publish:publish(?PUBLISHER,
+                                    [{SubscriptionId, delete}], [persistent])
     end,
     dby_db:transaction(Fn).
 
@@ -204,4 +204,4 @@ search_options(#options{loop = LoopDetection,
 id() ->
     {A, B, C} = now(),
     Now = integer_to_binary(((A * 1000000) + B) * 1000000 + C),
-    iolist_to_binary([atom_to_list(node()), $-, Now]).
+    iolist_to_binary([<<"subscription-">>,atom_to_list(node()), $-, Now]).
