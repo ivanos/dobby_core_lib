@@ -75,7 +75,7 @@ do_endpoint(Transaction,
 write_identifier(Transaction,
             IdentifierR = #identifier{id = Identifier, metadata = delete}) ->
     % delete record
-    ok = transaction_delete(Transaction, Identifier),
+    ok = transaction_delete(Transaction, IdentifierR),
     % delete links to this identifer
     lists:foreach(
         fun(NeighborIdentifier) ->
@@ -165,9 +165,9 @@ transaction_new(user, persistent) ->
         % XXX write only if different
         ok = dby_db:write(IdentifierR),
         ok = dby_transaction:publish(Transaction, IdentifierR);
-       (delete, Identifier) ->
+       (delete, IdentifierR = #identifier{id = Identifier}) ->
         ok = dby_db:delete({identifier, Identifier}),
-        ok = dby_transaction:delete(Transaction, Identifier);
+        ok = dby_transaction:delete(Transaction, IdentifierR);
        (commit, {Publish, Fns}) ->
         case dby_db:transaction(joinfns(Fns)) of
             ok ->
@@ -181,7 +181,7 @@ transaction_new(user, persistent) ->
 transaction_new(system, persistent) ->
     fun(publish, IdentifierR) ->
         ok = dby_db:write(IdentifierR);
-       (delete, Identifier) ->
+       (delete, #identifier{id = Identifier}) ->
         ok = dby_db:delete({identifier, Identifier});
        (commit, {_, Fns}) ->
         dby_db:transaction(joinfns(Fns))
@@ -190,8 +190,8 @@ transaction_new(user, message) ->
     Transaction = dby_transaction:new(),
     fun(publish, IdentifierR) ->
         ok = dby_transaction:publish(Transaction, IdentifierR);
-       (delete, Identifier) ->
-        ok = dby_transaction:delete(Transaction, Identifier);
+       (delete, IdentifierR) ->
+        ok = dby_transaction:delete(Transaction, IdentifierR);
        (commit, {Publish, Fns}) ->
         case dby_db:transaction(joinfns(Fns)) of
             ok ->
@@ -207,8 +207,8 @@ transaction_new(user, message) ->
 transaction_publish(Transaction, IdentifierR) ->
     Transaction(publish, IdentifierR).
 
-transaction_delete(Transaction, Identifier) ->
-    Transaction(delete, Identifier).
+transaction_delete(Transaction, IdentifierR) ->
+    Transaction(delete, IdentifierR).
 
 transaction_commit(Transaction, Publish, Fns) ->
     Transaction(commit, {Publish, Fns}).

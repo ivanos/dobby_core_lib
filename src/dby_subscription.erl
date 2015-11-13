@@ -68,8 +68,27 @@ publish(SubscriptionId, Publish, ReadFn) ->
 
 do_publish(Publish, SubscriptionId, ReadFn) ->
     Id0 = dby_store:read_identifier(SubscriptionId),
-    #identifier{metadata = Subscription0, links = Links} = Id0,
-    % run search
+    try
+        % run search
+        run_search(Publish, Id0, ReadFn)
+    catch
+        Error:Reason ->
+            % deliver error
+            #identifier{metadata = #{
+                options := #options{delivery_fun = DeliveryFn}
+            }} = Id0,
+            ErrorMsg = {Error, Reason, erlang:get_stacktrace()},
+            DeliveryFn({error, ErrorMsg}),
+            % log error
+            ?ERROR("subscription_id(~p) error: ~p", [SubscriptionId, ErrorMsg]),
+            % delete subscription
+            [set_delete(Id0)]
+    end.
+
+run_search(Publish, Id0, ReadFn) ->
+    #identifier{id = SubscriptionId, 
+                metadata = Subscription0,
+                links = Links} = Id0,
     #{last_result := LastResult,
       options := #options{persistent = Persistent,
                           message = Message,
