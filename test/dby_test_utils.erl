@@ -185,6 +185,9 @@ timestamp() -> <<"2015-03-04T00:45:54Z">>.
 identifier1(Id, Links) ->
     #identifier{id = Id, metadata = id_metadata1(Id), links = links1(Links)}.
 
+identifier_delete(Id) ->
+    #identifier{id = Id, metadata = delete}.
+
 sub_metadata(LastResult) ->
     #{
         system => subscription,

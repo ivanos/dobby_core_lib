@@ -55,12 +55,12 @@ transaction3() ->
     T = new_transaction(),
     ok = dby_transaction:publish(T, identifier1(<<"A">>, [<<"sub1">>])),
     ok = dby_transaction:publish(T, identifier1(<<"B">>, [<<"sub1">>])),
-    ok = dby_transaction:delete(T, <<"C">>),
+    ok = dby_transaction:delete(T, dby_test_utils:identifier_delete(<<"C">>)),
     ok = dby_transaction:commit(T, message),
     wait(T),
     timer:sleep(10),
     ReadFn = read_fn(meck:history(dby_subscription)),
-    ?assertEqual([#identifier{id = <<"C">>, metadata = #{}, links = #{}}], ReadFn({identifier, <<"C">>})),
+    ?assertEqual([#identifier{id = <<"C">>, metadata = delete, links = #{}}], ReadFn({identifier, <<"C">>})),
     ?assertMatch([#identifier{id = <<"B">>}], ReadFn({identifier, <<"B">>})),
     ?assertMatch([#identifier{id = <<"A">>}], ReadFn({identifier, <<"A">>})).
 
