@@ -165,10 +165,11 @@ publish8() ->
     Identifier1 = <<"id1">>,
     Identifier1Metadata = [{<<"key_id1">>, <<"value_id1">>}],
     IdentifierR1 = identifier(Identifier1, Identifier1Metadata, []),
+    IdentifierR2 = identifier(Identifier1, delete, []),
     dby_test_utils:dby_read([[IdentifierR1]]),
     dby_publish:publish(?PUBLISHER_ID, [{Identifier1, delete}], [persistent]),
     ?assert(meck:called(dby_db, delete, [{identifier, Identifier1}])),
-    ?assert(meck:called(dby_transaction, delete, [transaction_pid, Identifier1])).
+    ?assert(meck:called(dby_transaction, delete, [transaction_pid, IdentifierR2])).
 
 publish9() ->
     % delete identifier that is in graph and has links
@@ -178,11 +179,12 @@ publish9() ->
     Identifier2Metadata = [{<<"key_id2">>, <<"value_id2">>}],
     LinkMetadata = [{<<"key1">>, <<"value1">>}],
     IdentifierR1 = identifier(Identifier1, Identifier1Metadata, Identifier2, LinkMetadata),
+    IdentifierR1A = identifier(Identifier1, delete, Identifier2, LinkMetadata),
     IdentifierR2 = identifier(Identifier2, Identifier2Metadata, Identifier1, LinkMetadata),
     dby_test_utils:dby_read([[IdentifierR1],[IdentifierR2]]),
     dby_publish:publish(?PUBLISHER_ID, [{Identifier1, delete}], [persistent]),
     ?assert(meck:called(dby_db, delete, [{identifier, Identifier1}])),
-    ?assert(meck:called(dby_transaction, delete, [transaction_pid, Identifier1])),
+    ?assert(meck:called(dby_transaction, delete, [transaction_pid, IdentifierR1A])),
     ?assert(meck:called(dby_db, write, [IdentifierR2#identifier{links = #{}}])).
 
 publish10() ->
@@ -271,6 +273,8 @@ publish16() ->
 % helper functions
 % ------------------------------------------------------------------------------
 
+metadatainfo(delete) ->
+    delete;
 metadatainfo(MetadataPL) ->
     dby_test_utils:format_metadata(MetadataPL).
 
