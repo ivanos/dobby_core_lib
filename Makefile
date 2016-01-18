@@ -1,5 +1,5 @@
 APPS = kernel stdlib sasl erts ssl tools runtime_tools crypto inets \
-	public_key mnesia syntax_tools compiler
+	public_key mnesia syntax_tools compiler compile_prop proper
 COMBO_PLT = $(HOME)/.dobby_combo_dialyzer_plt
 
 .PHONY: compile deps test clean ct build_plt check_plt
@@ -10,11 +10,23 @@ compile:
 deps:
 	./rebar get-deps
 
+test:  eunit ct proper
+
 eunit: compile
 	./rebar -v skip_deps=true eunit
 
 ct: compile
 	./rebar -v ct $(CTARGS)
+
+compile_prop:
+	erlc -o test/ test/prop*.erl
+
+proper: compile compile_prop
+	rm -rf Mnesia.prop_test@*
+	erl -pa ebin deps/*/ebin test \
+	-sname prop_test -erl_mnesia options \[persistent\] \
+	-eval "proper:module(prop_dby_subscription)" \
+	-s init stop
 
 clean:
 	./rebar clean
