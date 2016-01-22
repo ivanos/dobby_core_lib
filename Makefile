@@ -24,12 +24,17 @@ compile_prop:
 proper: compile compile_prop
 	rm -rf Mnesia.prop_test@*
 	erl -pa ebin deps/*/ebin test \
+	-noshell \
 	-sname prop_test -erl_mnesia options \[persistent\] \
 	-eval "proper:module(prop_dby_subscription)" \
 	-s init stop
 
 clean:
 	./rebar clean
+
+deep-clean: clean
+	rm -rf deps/*/ebin
+	rm -f test/*.beam
 
 build_plt: compile
 	dialyzer --build_plt --output_plt $(COMBO_PLT) --apps $(APPS) \
