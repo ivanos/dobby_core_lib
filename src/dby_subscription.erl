@@ -68,22 +68,8 @@ publish(SubscriptionId, Publish, ReadFn) ->
 
 do_publish(Publish, SubscriptionId, ReadFn) ->
     Id0 = dby_store:read_identifier(SubscriptionId),
-    try
-        % run search
-        run_search(Publish, Id0, ReadFn)
-    catch
-        Error:Reason ->
-            % deliver error
-            #identifier{metadata = #{
-                options := #options{delivery_fun = DeliveryFn}
-            }} = Id0,
-            ErrorMsg = {Error, Reason, erlang:get_stacktrace()},
-            DeliveryFn({error, ErrorMsg}),
-            % log error
-            ?ERROR("subscription_id(~p) error: ~p", [SubscriptionId, ErrorMsg]),
-            % delete subscription
-            [set_delete(Id0)]
-    end.
+    run_search(Publish, Id0, ReadFn).
+
 
 run_search(Publish, Id0, ReadFn) ->
     #identifier{id = SubscriptionId, 
@@ -108,7 +94,13 @@ run_search(Publish, Id0, ReadFn) ->
                     Id0;
                 false ->
                     % apply delta
-                    case DeltaFn(LastResult, SearchResult) of
+                    case catch DeltaFn(LastResult, SearchResult) of
+                        {'EXIT', ErrorMsg} ->
+                            DeliveryFn({error, ErrorMsg}),
+                            ?ERROR(
+                               "subscription_id(~p) delta_fun error: ~p",
+                               [SubscriptionId, ErrorMsg]),
+                            set_delete(Id0);
                         stop ->
                             % delete subscription
                             set_delete(Id0);
@@ -118,7 +110,12 @@ run_search(Publish, Id0, ReadFn) ->
                             set_last_result(Publish, Id0, SearchResult);
                         {delta, Delta} ->
                             % deliver the delta
-                            case DeliveryFn(Delta) of
+                            case catch DeliveryFn(Delta) of
+                                {'EXIT', ErrorMsg} ->
+                                    ?ERROR(
+                                       "subscription_id(~p) delivery_fun error: ~p",
+                                       [SubscriptionId, ErrorMsg]),
+                                    set_delete(Id0);
                                 ok ->
                                     % set the last result in the metadata
                                     set_last_result(Publish, Id0, SearchResult);
